@@ -45,6 +45,7 @@ impl Plugin for PixelSnapPlugin {
 
 /// Low-resolution texture that contains the pixel-perfect world.
 /// Canvas itself is rendered to the high-resolution world.
+
 #[derive(Component)]
 struct Canvas;
 
@@ -54,7 +55,7 @@ struct InGameCamera;
 
 /// Camera that renders the [`Canvas`] (and other graphics on [`HIGH_RES_LAYERS`]) to the screen.
 #[derive(Component)]
-struct OuterCamera;
+pub struct OuterCamera;
 
 #[derive(Component)]
 struct Rotate;

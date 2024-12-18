@@ -1,6 +1,9 @@
+use crate::pixel_grid_snap::OuterCamera;
 use crate::pixel_grid_snap::{RES_HEIGHT, RES_WIDTH};
 use bevy::input::keyboard::KeyCode;
+use bevy::input::mouse::MouseButton;
 use bevy::prelude::*;
+use bevy::window::PrimaryWindow;
 pub struct PlayerPlugin;
 
 pub const SPRITE_SIZE: f32 = 16.0;
@@ -8,7 +11,10 @@ pub const SPRITE_SIZE: f32 = 16.0;
 impl Plugin for PlayerPlugin {
     fn build(&self, app: &mut App) {
         app.add_systems(Startup, spawn_player);
-        app.add_systems(Update, player_movement);
+        app.add_systems(
+            Update,
+            (player_movement, fire_projectile, projectile_movement),
+        );
     }
 }
 
@@ -18,6 +24,12 @@ struct Player {
     acceleration_rate: f32,
     max_velocity: f32,
 }
+#[derive(Component)]
+struct Projectile {
+    velocity: f32,
+    direction: Vec2,
+}
+
 fn spawn_player(mut commands: Commands, asset_server: Res<AssetServer>) {
     commands.spawn((
         Player {
@@ -92,5 +104,49 @@ fn player_movement(
     } else if transform.translation.y >= max_y {
         transform.translation.y = max_y;
         player.velocity.y = -player.velocity.y.abs(); // Bounce down
+    }
+}
+
+fn projectile_movement(time: Res<Time>, mut query: Query<(&mut Transform, &Projectile)>) {
+    for (mut transform, projectile) in query.iter_mut() {
+        transform.translation +=
+            (projectile.direction * projectile.velocity * time.delta_secs()).extend(0.0);
+    }
+}
+fn fire_projectile(
+    q_window: Query<&Window, With<PrimaryWindow>>,
+    q_camera: Query<(&Camera, &GlobalTransform), With<OuterCamera>>,
+    q_player: Query<&Transform, With<Player>>,
+    mut commands: Commands,
+    asset_server: Res<AssetServer>,
+    mouse_button: Res<ButtonInput<MouseButton>>,
+) {
+    let (camera, camera_transform) = q_camera.single();
+    let window = q_window.single();
+
+    if let Some(world_position) = window
+        .cursor_position()
+        .and_then(|cursor| camera.viewport_to_world_2d(camera_transform, cursor).ok())
+    {
+        println!("World coords: {}/{}", world_position.x, world_position.y);
+    }
+
+    if let Some(world_position) = window
+        .cursor_position()
+        .and_then(|cursor| camera.viewport_to_world_2d(camera_transform, cursor).ok())
+    {
+        let player_transform = q_player.single();
+        let player_position = player_transform.translation.truncate();
+        let projectile_direction = (world_position - player_position).normalize();
+        if mouse_button.just_pressed(MouseButton::Left) {
+            commands.spawn((
+                Projectile {
+                    velocity: 100.0,
+                    direction: projectile_direction,
+                },
+                Transform::from_translation(player_position.extend(0.0)),
+                Sprite::from_image(asset_server.load("projectile.png")),
+            ));
+        }
     }
 }
