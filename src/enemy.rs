@@ -35,21 +35,30 @@ fn spawn_enemy(
 
         let snowman_sprite = commands
             .spawn((
-                Sprite::from_image(asset_server.load("Snowman2.png")),
+                Sprite::from_image(asset_server.load("Snowman.png")),
                 Wiggle {
                     rotate_speed: 18.0,
-                    rotate_amount: 0.02,
+                    rotate_amount: 0.0125,
                     scale_speed: 18.0,
-                    scale_amount: 0.15,
+                    scale_amount: 0.125,
                     offset: num_offset,
                 },
             ))
             .id();
 
         let snowman_shadow = commands
+        
             .spawn((
+                Transform::from_xyz(0.0, -8.0, 0.0),
                 Sprite::from_image(asset_server.load("Shadow.png")),
                 YSort { z: -100.0 },
+                Wiggle {
+                    rotate_speed: 0.0,
+                    rotate_amount: 0.0,
+                    scale_speed: 18.0,
+                    scale_amount: 0.085,
+                    offset: num_offset,
+                },
             ))
             .id();
         commands.entity(snowman_holder).add_child(snowman_shadow);
