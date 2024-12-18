@@ -8,7 +8,7 @@ pub struct EnemyPlugin;
 impl Plugin for EnemyPlugin {
     fn build(&self, app: &mut App) {
         app.insert_resource(EnemyTimer(Timer::from_seconds(0.01, TimerMode::Repeating)));
-        app.add_systems(Update, (spawn_enemy, chase_player, y_sort));
+        app.add_systems(Update, (spawn_enemy, chase_player, wiggle, y_sort));
     }
 }
 
@@ -24,7 +24,23 @@ fn spawn_enemy(time: Res<Time>, mut timer: ResMut<EnemyTimer>, mut commands: Com
             Transform::from_xyz(boundary_pt.x, boundary_pt.y, 2.0),
             YSort{ z: 32.0, },
             ChasePlayer{ speed: 25.0},
+            Wiggle{speed: 15.0, amount: 2.0, offset: time.elapsed_secs()},
         ));
+    }
+}
+
+#[derive(Component)]
+struct Wiggle{
+    speed: f32,
+    amount: f32,
+    offset: f32,
+}
+
+fn wiggle(time: Res<Time>, mut q: Query<(&mut Transform, &Wiggle)>) {
+    for (mut tf, wiggle) in q.iter_mut() {
+        let sin_amount = f32::sin(time.elapsed_secs() * wiggle.speed);
+        let dt = time.delta_secs() * wiggle.amount as f32;
+        tf.rotate_z(sin_amount * dt);
     }
 }
 
@@ -47,9 +63,7 @@ struct YSort {
     z: f32,
 }
 
-fn y_sort(
-    mut q: Query<(&mut Transform, &YSort)>,
-) {
+fn y_sort(mut q: Query<(&mut Transform, &YSort)>,) {
     for (mut tf, ysort) in q.iter_mut() {
         tf.translation.z = ysort.z -(1.0f32 / (1.0f32 + (2.0f32.powf(-0.01*tf.translation.y))));
     }
