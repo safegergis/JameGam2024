@@ -1,8 +1,7 @@
-use crate::pixel_grid_snap::{InGameCamera, OuterCamera};
+use crate::pixel_grid_snap::{InGameCamera, OuterCamera, Rotate};
 use crate::utils::YSort;
 use bevy::input::keyboard::KeyCode;
 use bevy::input::mouse::MouseButton;
-use bevy::math::vec2;
 use bevy::prelude::*;
 use bevy::window::PrimaryWindow;
 pub struct PlayerPlugin;
@@ -12,7 +11,13 @@ impl Plugin for PlayerPlugin {
         app.add_systems(Startup, spawn_player);
         app.add_systems(
             Update,
-            (player_movement, fire_projectile, projectile_movement, animate_sprite),
+            (
+                player_movement,
+                fire_projectile,
+                projectile_movement,
+                animate_sprite,
+                camera_follow,
+            ),
         );
     }
 }
@@ -30,8 +35,11 @@ struct Projectile {
     direction: Vec2,
 }
 
-fn spawn_player(mut commands: Commands, asset_server: Res<AssetServer>, mut texture_atlas_layouts: ResMut<Assets<TextureAtlasLayout>>)
-{
+fn spawn_player(
+    mut commands: Commands,
+    asset_server: Res<AssetServer>,
+    mut texture_atlas_layouts: ResMut<Assets<TextureAtlasLayout>>,
+) {
     let texture = asset_server.load("elf.png");
     let layout = TextureAtlasLayout::from_grid(UVec2::splat(48), 3, 1, None, None);
     let texture_atlas_layout = texture_atlas_layouts.add(layout);
@@ -54,7 +62,6 @@ fn spawn_player(mut commands: Commands, asset_server: Res<AssetServer>, mut text
         AnimationTimer(Timer::from_seconds(0.1, TimerMode::Repeating)),
         Transform::from_xyz(0.0, 0.0, 0.0),
         YSort { z: 64.0 },
-
     ));
 }
 
@@ -156,11 +163,12 @@ fn fire_projectile(
         if mouse_button.just_pressed(MouseButton::Left) {
             commands.spawn((
                 Projectile {
-                    velocity: 500.0,
+                    velocity: 350.0,
                     direction: projectile_direction,
                 },
                 Transform::from_translation(player_position.extend(0.0)),
-                Sprite::from_image(asset_server.load("projectile.png")),
+                Sprite::from_image(asset_server.load("candycane_shuriken.png")),
+                Rotate,
             ));
         }
     }
