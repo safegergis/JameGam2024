@@ -2,6 +2,7 @@ use crate::pixel_grid_snap::{InGameCamera, OuterCamera};
 use crate::utils::YSort;
 use bevy::input::keyboard::KeyCode;
 use bevy::input::mouse::MouseButton;
+use bevy::math::vec2;
 use bevy::prelude::*;
 use bevy::window::PrimaryWindow;
 pub struct PlayerPlugin;
@@ -90,7 +91,7 @@ fn player_movement(
 }
 
 fn camera_follow(
-    mut camera_query: Query<&mut Transform, (With<OuterCamera>, Without<Player>)>,
+    mut camera_query: Query<&mut Transform, (With<InGameCamera>, Without<Player>)>,
     player_query: Query<&Transform, With<Player>>,
     time: Res<Time>,
 ) {
@@ -117,12 +118,14 @@ fn projectile_movement(time: Res<Time>, mut query: Query<(&mut Transform, &Proje
 fn fire_projectile(
     q_window: Query<&Window, With<PrimaryWindow>>,
     q_camera: Query<(&Camera, &GlobalTransform), With<OuterCamera>>,
+    q_incamera: Query<(&Camera, &GlobalTransform), With<InGameCamera>>,
     q_player: Query<&Transform, With<Player>>,
     mut commands: Commands,
     asset_server: Res<AssetServer>,
     mouse_button: Res<ButtonInput<MouseButton>>,
 ) {
     let (camera, camera_transform) = q_camera.single();
+    let (cameraIn, cameraIn_transform) = q_incamera.single();
     let window = q_window.single();
 
     if let Some(world_position) = window
@@ -136,13 +139,14 @@ fn fire_projectile(
         .cursor_position()
         .and_then(|cursor| camera.viewport_to_world_2d(camera_transform, cursor).ok())
     {
+        let new_world_position = world_position + cameraIn_transform.translation().truncate();
         let player_transform = q_player.single();
         let player_position = player_transform.translation.truncate();
-        let projectile_direction = (world_position - player_position).normalize();
+        let projectile_direction = (new_world_position - player_position).normalize();
         if mouse_button.just_pressed(MouseButton::Left) {
             commands.spawn((
                 Projectile {
-                    velocity: 100.0,
+                    velocity: 500.0,
                     direction: projectile_direction,
                 },
                 Transform::from_translation(player_position.extend(0.0)),
