@@ -8,7 +8,7 @@ pub struct EnemyPlugin;
 impl Plugin for EnemyPlugin {
     fn build(&self, app: &mut App) {
         app.insert_resource(EnemyTimer(Timer::from_seconds(0.01, TimerMode::Repeating)));
-        app.add_systems(Update, (spawn_enemy, chase_player, wiggle, y_sort));
+        app.add_systems(Update, (chase_player, wiggle, y_sort));
     }
 }
 
@@ -24,30 +24,36 @@ fn spawn_enemy(
     let circle = Circle::new(200.0);
     let boundary_pt = circle.sample_boundary(&mut rand::thread_rng());
     if timer.0.tick(time.delta()).just_finished() {
-        let num_offset = rand::thread_rng().gen_range(-1.0..1.0);      
+        let num_offset = rand::thread_rng().gen_range(-1.0..1.0);
 
-        let snowman_holder = commands.spawn((
-            Visibility::Visible,
-            Transform::from_xyz(boundary_pt.x, boundary_pt.y, 2.0),
-            YSort { z: 32.0 },
-            ChasePlayer { speed: 25.0 },
-        )).id();
+        let snowman_holder = commands
+            .spawn((
+                Visibility::Visible,
+                Transform::from_xyz(boundary_pt.x, boundary_pt.y, 2.0),
+                YSort { z: 32.0 },
+                ChasePlayer { speed: 25.0 },
+            ))
+            .id();
 
-        let snowman_sprite = commands.spawn((
-            Sprite::from_image(asset_server.load("Snowman2.png")),
-            Wiggle {
-                rotate_speed: 18.0,
-                rotate_amount: 0.02,
-                scale_speed: 18.0,
-                scale_amount: 0.15,
-                offset: num_offset,
-            },
-        )).id();
+        let snowman_sprite = commands
+            .spawn((
+                Sprite::from_image(asset_server.load("Snowman2.png")),
+                Wiggle {
+                    rotate_speed: 18.0,
+                    rotate_amount: 0.02,
+                    scale_speed: 18.0,
+                    scale_amount: 0.15,
+                    offset: num_offset,
+                },
+            ))
+            .id();
 
-        let snowman_shadow = commands.spawn((
-            Sprite::from_image(asset_server.load("Shadow.png")),
-            YSort { z: -100.0 },        
-        )).id();
+        let snowman_shadow = commands
+            .spawn((
+                Sprite::from_image(asset_server.load("Shadow.png")),
+                YSort { z: -100.0 },
+            ))
+            .id();
         commands.entity(snowman_holder).add_child(snowman_shadow);
         commands.entity(snowman_holder).add_child(snowman_sprite);
     }
@@ -68,7 +74,11 @@ fn wiggle(time: Res<Time>, mut q: Query<(&mut Transform, &Wiggle)>) {
         let scale_sin = f32::sin(wiggle.offset + time.elapsed_secs() * wiggle.scale_speed);
         let dt = time.delta_secs();
         tf.rotate_z(rotate_sin * wiggle.rotate_amount);
-        tf.scale = Vec3::new(1.0 + scale_sin * wiggle.scale_amount, 1.0 - scale_sin * wiggle.scale_amount, 1.0);
+        tf.scale = Vec3::new(
+            1.0 + scale_sin * wiggle.scale_amount,
+            1.0 - scale_sin * wiggle.scale_amount,
+            1.0,
+        );
     }
 }
 

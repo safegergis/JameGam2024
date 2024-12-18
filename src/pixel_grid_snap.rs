@@ -13,10 +13,10 @@ use bevy::{
 };
 
 /// In-game resolution width.
-const RES_WIDTH: u32 = 360;
+pub const RES_WIDTH: u32 = 360;
 
 /// In-game resolution height.
-const RES_HEIGHT: u32 = 180;
+pub const RES_HEIGHT: u32 = 180;
 
 /// Default render layers for pixel-perfect rendering.
 /// You can skip adding this component, as this is the default.
@@ -25,7 +25,7 @@ const PIXEL_PERFECT_LAYERS: RenderLayers = RenderLayers::layer(0);
 /// Render layers for high-resolution rendering.
 const HIGH_RES_LAYERS: RenderLayers = RenderLayers::layer(1);
 
-pub  struct  PixelSnapPlugin;
+pub struct PixelSnapPlugin;
 
 impl Plugin for PixelSnapPlugin {
     fn build(&self, app: &mut App) {
@@ -45,6 +45,7 @@ impl Plugin for PixelSnapPlugin {
 
 /// Low-resolution texture that contains the pixel-perfect world.
 /// Canvas itself is rendered to the high-resolution world.
+
 #[derive(Component)]
 struct Canvas;
 
@@ -54,11 +55,10 @@ struct InGameCamera;
 
 /// Camera that renders the [`Canvas`] (and other graphics on [`HIGH_RES_LAYERS`]) to the screen.
 #[derive(Component)]
-struct OuterCamera;
+pub struct OuterCamera;
 
 #[derive(Component)]
 struct Rotate;
-
 
 fn setup_camera(mut commands: Commands, mut images: ResMut<Assets<Image>>) {
     let canvas_size = Extent3d {
