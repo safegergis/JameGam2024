@@ -14,7 +14,7 @@ impl Plugin for PlayerPlugin {
         app.add_systems(Startup, spawn_player);
         app.add_systems(
             Update,
-            (player_movement, fire_projectile, projectile_movement),
+            (player_movement, fire_projectile, projectile_movement, animate_sprite),
         );
     }
 }
@@ -31,16 +31,31 @@ struct Projectile {
     direction: Vec2,
 }
 
-fn spawn_player(mut commands: Commands, asset_server: Res<AssetServer>) {
+fn spawn_player(mut commands: Commands, asset_server: Res<AssetServer>, mut texture_atlas_layouts: ResMut<Assets<TextureAtlasLayout>>)
+{
+    let texture = asset_server.load("elf.png");
+    let layout = TextureAtlasLayout::from_grid(UVec2::splat(48), 3, 1, None, None);
+    let texture_atlas_layout = texture_atlas_layouts.add(layout);
+    // Use only the subset of sprites in the sheet that make up the run animation
+    let animation_indices = AnimationIndices { first: 0, last: 2 };
     commands.spawn((
         Player {
             velocity: Vec2::ZERO,
             acceleration_rate: 500.0,
             max_velocity: 100.0,
         },
-        Sprite::from_image(asset_server.load("elf.png")),
+        Sprite::from_atlas_image(
+            texture,
+            TextureAtlas {
+                layout: texture_atlas_layout,
+                index: animation_indices.first,
+            },
+        ),
+        animation_indices,
+        AnimationTimer(Timer::from_seconds(0.1, TimerMode::Repeating)),
         Transform::from_xyz(0.0, 0.0, 0.0),
         YSort { z: 64.0 },
+
     ));
 }
 
@@ -143,12 +158,40 @@ fn fire_projectile(
         if mouse_button.just_pressed(MouseButton::Left) {
             commands.spawn((
                 Projectile {
-                    velocity: 100.0,
+                    velocity: 500.0,
                     direction: projectile_direction,
                 },
                 Transform::from_translation(player_position.extend(0.0)),
                 Sprite::from_image(asset_server.load("projectile.png")),
             ));
+        }
+    }
+}
+
+#[derive(Component)]
+struct AnimationIndices {
+    first: usize,
+    last: usize,
+}
+
+#[derive(Component, Deref, DerefMut)]
+struct AnimationTimer(Timer);
+
+fn animate_sprite(
+    time: Res<Time>,
+    mut query: Query<(&AnimationIndices, &mut AnimationTimer, &mut Sprite)>,
+) {
+    for (indices, mut timer, mut sprite) in &mut query {
+        timer.tick(time.delta());
+
+        if timer.just_finished() {
+            if let Some(atlas) = &mut sprite.texture_atlas {
+                atlas.index = if atlas.index == indices.last {
+                    indices.first
+                } else {
+                    atlas.index + 1
+                };
+            }
         }
     }
 }
