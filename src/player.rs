@@ -17,6 +17,7 @@ impl Plugin for PlayerPlugin {
                 projectile_movement,
                 animate_sprite,
                 camera_follow,
+                break_projectiles,
             ),
         );
     }
@@ -30,9 +31,13 @@ struct Player {
     max_velocity: f32,
 }
 #[derive(Component)]
-struct Projectile {
+pub struct Projectile {
     velocity: f32,
     direction: Vec2,
+}
+#[derive(Component)]
+pub struct ProjectileDurability {
+    pub durability: u32,
 }
 
 fn spawn_player(
@@ -169,11 +174,21 @@ fn fire_projectile(
                 Transform::from_translation(player_position.extend(0.0)),
                 Sprite::from_image(asset_server.load("candycane_shuriken.png")),
                 Rotate,
+                ProjectileDurability { durability: 5 },
             ));
         }
     }
 }
-
+fn break_projectiles(
+    mut commands: Commands,
+    mut query: Query<(&mut ProjectileDurability, Entity)>,
+) {
+    for (mut durability, entity) in query.iter_mut() {
+        if durability.durability == 0 {
+            commands.entity(entity).despawn_recursive();
+        }
+    }
+}
 #[derive(Component)]
 struct AnimationIndices {
     first: usize,

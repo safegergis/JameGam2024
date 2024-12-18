@@ -1,3 +1,5 @@
+use crate::player::Projectile;
+use crate::player::ProjectileDurability;
 use crate::utils::YSort;
 use bevy::prelude::*;
 use rand::Rng;
@@ -6,7 +8,17 @@ pub struct EnemyPlugin;
 impl Plugin for EnemyPlugin {
     fn build(&self, app: &mut App) {
         app.insert_resource(EnemyTimer(Timer::from_seconds(0.01, TimerMode::Repeating)));
-        app.add_systems(Update, (chase_player, spawn_enemy, wiggle, y_sort));
+        app.add_systems(
+            Update,
+            (
+                chase_player,
+                spawn_enemy,
+                wiggle,
+                y_sort,
+                enemy_collision,
+                projectiles_collision,
+            ),
+        );
     }
 }
 
@@ -47,7 +59,6 @@ fn spawn_enemy(
             .id();
 
         let snowman_shadow = commands
-        
             .spawn((
                 Transform::from_xyz(0.0, -8.0, 0.0),
                 Sprite::from_image(asset_server.load("Shadow.png")),
@@ -105,5 +116,49 @@ fn chase_player(time: Res<Time>, mut q: Query<(&mut Transform, &Enemy)>) {
 fn y_sort(mut q: Query<(&mut Transform, &YSort)>) {
     for (mut tf, ysort) in q.iter_mut() {
         tf.translation.z = ysort.z - (1.0f32 / (1.0f32 + (2.0f32.powf(-0.01 * tf.translation.y))));
+    }
+}
+fn enemy_collision(mut q: Query<&mut Transform, With<Enemy>>) {
+    let mut combinations = q.iter_combinations_mut();
+    while let Some([mut tf1, mut tf2]) = combinations.fetch_next() {
+        let pos1 = tf1.translation.truncate();
+        let pos2 = tf2.translation.truncate();
+
+        // Use a radius of 32 pixels for collision
+        let collision_dist = 16.0;
+        let dist = pos1.distance(pos2);
+
+        if dist < collision_dist {
+            // Calculate push direction and amount
+            let push_dir = (pos1 - pos2).normalize();
+            let push_amount = (collision_dist - dist) / 2.0;
+
+            // Push both enemies apart equally
+            tf1.translation += (push_dir * push_amount).extend(0.0);
+            tf2.translation += (-push_dir * push_amount).extend(0.0);
+        }
+    }
+}
+fn projectiles_collision(
+    mut commands: Commands,
+    mut projectiles_q: Query<(&Transform, &mut ProjectileDurability), With<Projectile>>,
+    enemies_q: Query<(Entity, &Transform), With<Enemy>>,
+) {
+    for (tf1, mut projectile_durability) in projectiles_q.iter_mut() {
+        for (enemy_id, tf2) in enemies_q.iter() {
+            let pos1 = tf1.translation.truncate();
+            let pos2 = tf2.translation.truncate();
+            let dist = pos1.distance(pos2);
+            if dist < 16.0 {
+                if projectile_durability.durability > 0 {
+                    commands.entity(enemy_id).despawn_recursive();
+                    println!("enemy destroyed");
+                    projectile_durability.durability -= 1;
+                } else {
+                    commands.entity(enemy_id).despawn_recursive();
+                    println!("enemy destroyed");
+                }
+            }
+        }
     }
 }
