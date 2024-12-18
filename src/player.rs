@@ -12,14 +12,14 @@ impl Plugin for PlayerPlugin {
         app.add_systems(Startup, spawn_player);
         app.add_systems(
             Update,
-            (player_movement, fire_projectile, projectile_movement, animate_sprite),
+            (player_movement, fire_projectile, camera_follow, projectile_movement, animate_sprite),
         );
     }
 }
 const LERP_FACTOR: f32 = 2.0;
 
 #[derive(Component)]
-struct Player {
+pub struct Player {
     velocity: Vec2,
     acceleration_rate: f32,
     max_velocity: f32,
@@ -91,10 +91,10 @@ fn player_movement(
         player.velocity = player.velocity.normalize() * player.max_velocity;
     }
 
-    println!(
-        "velocity: {:?} translation: {:?}, speed: {:?}, acceleration: {:?}",
-        player.velocity, transform.translation, current_speed, acceleration_vector
-    );
+    // println!(
+    //     "velocity: {:?} translation: {:?}, speed: {:?}, acceleration: {:?}",
+    //     player.velocity, transform.translation, current_speed, acceleration_vector
+    // );
 
     // Move player based on velocity
     transform.translation += (player.velocity * time.delta_secs()).extend(0.0);
@@ -142,7 +142,7 @@ fn fire_projectile(
         .cursor_position()
         .and_then(|cursor| camera.viewport_to_world_2d(camera_transform, cursor).ok())
     {
-        println!("World coords: {}/{}", world_position.x, world_position.y);
+        //println!("World coords: {}/{}", world_position.x, world_position.y);
     }
 
     if let Some(world_position) = window
