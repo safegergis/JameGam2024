@@ -1,5 +1,4 @@
-use crate::pixel_grid_snap::OuterCamera;
-use crate::pixel_grid_snap::{RES_HEIGHT, RES_WIDTH};
+use crate::pixel_grid_snap::{InGameCamera, OuterCamera};
 use crate::utils::YSort;
 use bevy::input::keyboard::KeyCode;
 use bevy::input::mouse::MouseButton;
@@ -7,17 +6,21 @@ use bevy::prelude::*;
 use bevy::window::PrimaryWindow;
 pub struct PlayerPlugin;
 
-pub const SPRITE_SIZE: f32 = 16.0;
-
 impl Plugin for PlayerPlugin {
     fn build(&self, app: &mut App) {
         app.add_systems(Startup, spawn_player);
         app.add_systems(
             Update,
-            (player_movement, fire_projectile, projectile_movement),
+            (
+                player_movement,
+                fire_projectile,
+                projectile_movement,
+                camera_follow,
+            ),
         );
     }
 }
+const LERP_FACTOR: f32 = 2.0;
 
 #[derive(Component)]
 struct Player {
@@ -84,29 +87,25 @@ fn player_movement(
 
     // Move player based on velocity
     transform.translation += (player.velocity * time.delta_secs()).extend(0.0);
+}
 
-    // Clamp position to screen bounds (accounting for sprite size)
-    let min_x = -(RES_WIDTH as f32) / 2.0 + SPRITE_SIZE / 2.0;
-    let max_x = RES_WIDTH as f32 / 2.0 - SPRITE_SIZE / 2.0;
-    let min_y = -(RES_HEIGHT as f32) / 2.0 - SPRITE_SIZE / 2.0;
-    let max_y = RES_HEIGHT as f32 / 2.0 + SPRITE_SIZE / 2.0;
+fn camera_follow(
+    mut camera_query: Query<&mut Transform, (With<OuterCamera>, Without<Player>)>,
+    player_query: Query<&Transform, With<Player>>,
+    time: Res<Time>,
+) {
+    let Ok(mut camera_transform) = camera_query.get_single_mut() else {
+        return;
+    };
+    let Ok(player_transform) = player_query.get_single() else {
+        return;
+    };
 
-    // Check for collisions and bounce
-    if transform.translation.x <= min_x {
-        transform.translation.x = min_x;
-        player.velocity.x = player.velocity.x.abs(); // Bounce right
-    } else if transform.translation.x >= max_x {
-        transform.translation.x = max_x;
-        player.velocity.x = -player.velocity.x.abs(); // Bounce left
-    }
+    let target = player_transform.translation;
+    let current = camera_transform.translation;
+    let lerp_factor = LERP_FACTOR * time.delta_secs();
 
-    if transform.translation.y <= min_y {
-        transform.translation.y = min_y;
-        player.velocity.y = player.velocity.y.abs(); // Bounce up
-    } else if transform.translation.y >= max_y {
-        transform.translation.y = max_y;
-        player.velocity.y = -player.velocity.y.abs(); // Bounce down
-    }
+    camera_transform.translation = current.lerp(target, lerp_factor);
 }
 
 fn projectile_movement(time: Res<Time>, mut query: Query<(&mut Transform, &Projectile)>) {
