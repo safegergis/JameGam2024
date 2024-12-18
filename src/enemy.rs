@@ -1,6 +1,6 @@
+use crate::utils::YSort;
 use bevy::prelude::*;
 use rand::Rng;
-
 pub struct EnemyPlugin;
 
 impl Plugin for EnemyPlugin {
@@ -91,11 +91,6 @@ fn chase_player(time: Res<Time>, mut q: Query<(&mut Transform, &Enemy)>) {
         dir.z = 0.0;
         tf.translation += dir * dt;
     }
-}
-
-#[derive(Component)]
-struct YSort {
-    z: f32,
 }
 
 fn y_sort(mut q: Query<(&mut Transform, &YSort)>) {

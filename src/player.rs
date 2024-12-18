@@ -1,5 +1,6 @@
 use crate::pixel_grid_snap::OuterCamera;
 use crate::pixel_grid_snap::{RES_HEIGHT, RES_WIDTH};
+use crate::utils::YSort;
 use bevy::input::keyboard::KeyCode;
 use bevy::input::mouse::MouseButton;
 use bevy::prelude::*;
@@ -39,6 +40,7 @@ fn spawn_player(mut commands: Commands, asset_server: Res<AssetServer>) {
         },
         Sprite::from_image(asset_server.load("elf.png")),
         Transform::from_xyz(0.0, 0.0, 0.0),
+        YSort { z: 64.0 },
     ));
 }
 
