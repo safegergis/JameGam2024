@@ -30,7 +30,7 @@ pub struct PixelSnapPlugin;
 impl Plugin for PixelSnapPlugin {
     fn build(&self, app: &mut App) {
         app.add_plugins(DefaultPlugins.set(ImagePlugin::default_nearest()));
-        app.add_systems(Startup, (setup_camera));
+        app.add_systems(Startup, setup_camera);
         app.add_systems(Update, (rotate, fit_canvas));
     }
 }
