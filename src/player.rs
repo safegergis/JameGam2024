@@ -149,13 +149,6 @@ fn fire_projectile(
         .cursor_position()
         .and_then(|cursor| camera.viewport_to_world_2d(camera_transform, cursor).ok())
     {
-        //println!("World coords: {}/{}", world_position.x, world_position.y);
-    }
-
-    if let Some(world_position) = window
-        .cursor_position()
-        .and_then(|cursor| camera.viewport_to_world_2d(camera_transform, cursor).ok())
-    {
         let new_world_position = world_position + camera_in_transform.translation().truncate();
         let player_transform = q_player.single();
         let player_position = player_transform.translation.truncate();
