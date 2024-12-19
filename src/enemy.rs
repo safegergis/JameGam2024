@@ -8,13 +8,21 @@ pub struct EnemyPlugin;
 
 impl Plugin for EnemyPlugin {
     fn build(&self, app: &mut App) {
-        app.insert_resource(EnemyTimer(Timer::from_seconds(0.5, TimerMode::Repeating)));
-        app.add_systems(Update, (chase_player, spawn_enemy, wiggle, y_sort));
-    }
+        app.insert_resource(EnemyTimer(Timer::from_seconds(0.01, TimerMode::Repeating)));
+        app.add_systems(
+            Update,
+            (chase_player, spawn_enemy, wiggle, y_sort, kill_dead_enemies),
+        );
+
 }
 
 #[derive(Resource)]
 struct EnemyTimer(Timer);
+
+#[derive(Component)]
+pub struct EnemyHealth {
+    pub health: i32,
+}
 
 fn spawn_enemy(
     q_camera: Query<(&Camera, &GlobalTransform), With<InGameCamera>>,
@@ -34,7 +42,8 @@ fn spawn_enemy(
                 Visibility::Visible,
                 Transform::from_xyz(boundary_pt.x + camera_transform.translation().x, boundary_pt.y + camera_transform.translation().y, 2.0),
                 YSort { z: 32.0 },
-                Enemy { speed: 50.0 },
+                Enemy { speed: 25.0 },
+                EnemyHealth { health: 100 },
             ))
             .id();
 
@@ -52,7 +61,6 @@ fn spawn_enemy(
             .id();
 
         let snowman_shadow = commands
-        
             .spawn((
                 Transform::from_xyz(0.0, -8.0, 0.0),
                 Sprite::from_image(asset_server.load("Shadow.png")),
@@ -94,9 +102,17 @@ fn wiggle(time: Res<Time>, mut q: Query<(&mut Transform, &Wiggle)>) {
 }
 
 #[derive(Component)]
-struct Enemy {
+pub struct Enemy {
     speed: f32,
 }
+fn kill_dead_enemies(mut commands: Commands, q: Query<(&EnemyHealth, Entity)>) {
+    for (health, entity) in q.iter() {
+        if health.health <= 0 {
+            commands.entity(entity).despawn_recursive();
+        }
+    }
+}
+
 
 fn chase_player(time: Res<Time>, q_player: Query<(&GlobalTransform, &Player)>, mut q: Query<(&mut Transform, &Enemy)>) {
     let (player, _player_transform) = q_player.single();

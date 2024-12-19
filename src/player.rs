@@ -1,8 +1,7 @@
-use crate::pixel_grid_snap::{InGameCamera, OuterCamera};
+use crate::pixel_grid_snap::{InGameCamera, OuterCamera, Rotate};
 use crate::utils::YSort;
 use bevy::input::keyboard::KeyCode;
 use bevy::input::mouse::MouseButton;
-use bevy::math::vec2;
 use bevy::prelude::*;
 use bevy::window::PrimaryWindow;
 pub struct PlayerPlugin;
@@ -12,8 +11,13 @@ impl Plugin for PlayerPlugin {
         app.add_systems(Startup, spawn_player);
         app.add_systems(
             Update,
-            (player_movement, fire_projectile, camera_follow, projectile_movement, animate_sprite),
-        );
+            (
+                player_movement,
+                fire_projectile,
+                projectile_movement,
+                animate_sprite,
+                camera_follow,
+            ),
     }
 }
 const LERP_FACTOR: f32 = 2.0;
@@ -25,13 +29,16 @@ pub struct Player {
     max_velocity: f32,
 }
 #[derive(Component)]
-struct Projectile {
+pub struct Projectile {
     velocity: f32,
     direction: Vec2,
 }
 
-fn spawn_player(mut commands: Commands, asset_server: Res<AssetServer>, mut texture_atlas_layouts: ResMut<Assets<TextureAtlasLayout>>)
-{
+fn spawn_player(
+    mut commands: Commands,
+    asset_server: Res<AssetServer>,
+    mut texture_atlas_layouts: ResMut<Assets<TextureAtlasLayout>>,
+) {
     let texture = asset_server.load("elf.png");
     let layout = TextureAtlasLayout::from_grid(UVec2::splat(48), 3, 1, None, None);
     let texture_atlas_layout = texture_atlas_layouts.add(layout);
@@ -54,7 +61,6 @@ fn spawn_player(mut commands: Commands, asset_server: Res<AssetServer>, mut text
         AnimationTimer(Timer::from_seconds(0.1, TimerMode::Repeating)),
         Transform::from_xyz(0.0, 0.0, 0.0),
         YSort { z: 64.0 },
-
     ));
 }
 
@@ -128,14 +134,14 @@ fn projectile_movement(time: Res<Time>, mut query: Query<(&mut Transform, &Proje
 fn fire_projectile(
     q_window: Query<&Window, With<PrimaryWindow>>,
     q_camera: Query<(&Camera, &GlobalTransform), With<OuterCamera>>,
-    q_incamera: Query<(&Camera, &GlobalTransform), With<InGameCamera>>,
+    q_incamera: Query<&GlobalTransform, With<InGameCamera>>,
     q_player: Query<&Transform, With<Player>>,
     mut commands: Commands,
     asset_server: Res<AssetServer>,
     mouse_button: Res<ButtonInput<MouseButton>>,
 ) {
     let (camera, camera_transform) = q_camera.single();
-    let (cameraIn, cameraIn_transform) = q_incamera.single();
+    let camera_in_transform = q_incamera.single();
     let window = q_window.single();
 
     if let Some(world_position) = window
@@ -149,18 +155,19 @@ fn fire_projectile(
         .cursor_position()
         .and_then(|cursor| camera.viewport_to_world_2d(camera_transform, cursor).ok())
     {
-        let new_world_position = world_position + cameraIn_transform.translation().truncate();
+        let new_world_position = world_position + camera_in_transform.translation().truncate();
         let player_transform = q_player.single();
         let player_position = player_transform.translation.truncate();
         let projectile_direction = (new_world_position - player_position).normalize();
         if mouse_button.just_pressed(MouseButton::Left) {
             commands.spawn((
                 Projectile {
-                    velocity: 500.0,
+                    velocity: 350.0,
                     direction: projectile_direction,
                 },
                 Transform::from_translation(player_position.extend(0.0)),
-                Sprite::from_image(asset_server.load("projectile.png")),
+                Sprite::from_image(asset_server.load("candycane_shuriken.png")),
+                Rotate,
             ));
         }
     }
