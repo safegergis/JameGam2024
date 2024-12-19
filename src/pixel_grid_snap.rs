@@ -13,10 +13,10 @@ use bevy::{
 };
 
 /// In-game resolution width.
-pub const RES_WIDTH: u32 = 360;
+pub const RES_WIDTH: u32 = 480;
 
 /// In-game resolution height.
-pub const RES_HEIGHT: u32 = 180;
+pub const RES_HEIGHT: u32 = 270;
 
 /// Default render layers for pixel-perfect rendering.
 /// You can skip adding this component, as this is the default.

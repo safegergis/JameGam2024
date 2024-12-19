@@ -1,4 +1,7 @@
 use crate::utils::YSort;
+use crate::player::Player;
+use crate::pixel_grid_snap::InGameCamera;
+
 use bevy::prelude::*;
 use rand::Rng;
 pub struct EnemyPlugin;
@@ -10,7 +13,7 @@ impl Plugin for EnemyPlugin {
             Update,
             (chase_player, spawn_enemy, wiggle, y_sort, kill_dead_enemies),
         );
-    }
+
 }
 
 #[derive(Resource)]
@@ -22,20 +25,22 @@ pub struct EnemyHealth {
 }
 
 fn spawn_enemy(
+    q_camera: Query<(&Camera, &GlobalTransform), With<InGameCamera>>,
     time: Res<Time>,
     mut timer: ResMut<EnemyTimer>,
     mut commands: Commands,
     asset_server: Res<AssetServer>,
 ) {
-    let circle = Circle::new(200.0);
-    let boundary_pt = circle.sample_boundary(&mut rand::thread_rng());
     if timer.0.tick(time.delta()).just_finished() {
-        let num_offset = rand::thread_rng().gen_range(-1.0..1.0);
+        let circle = Circle::new(350.0);
+        let boundary_pt = circle.sample_boundary(&mut rand::thread_rng());
+        let (_camera, camera_transform) = q_camera.single();
 
+        let num_offset = rand::thread_rng().gen_range(-1.0..1.0);
         let snowman_holder = commands
             .spawn((
                 Visibility::Visible,
-                Transform::from_xyz(boundary_pt.x, boundary_pt.y, 2.0),
+                Transform::from_xyz(boundary_pt.x + camera_transform.translation().x, boundary_pt.y + camera_transform.translation().y, 2.0),
                 YSort { z: 32.0 },
                 Enemy { speed: 25.0 },
                 EnemyHealth { health: 100 },
@@ -107,11 +112,14 @@ fn kill_dead_enemies(mut commands: Commands, q: Query<(&EnemyHealth, Entity)>) {
         }
     }
 }
-fn chase_player(time: Res<Time>, mut q: Query<(&mut Transform, &Enemy)>) {
+
+
+fn chase_player(time: Res<Time>, q_player: Query<(&GlobalTransform, &Player)>, mut q: Query<(&mut Transform, &Enemy)>) {
+    let (player, _player_transform) = q_player.single();
+    //println!("PlayerPositon coords: {}/{}", player.translation().x, player.translation().y);
     for (mut tf, enemy) in q.iter_mut() {
         let dt = time.delta_secs() * enemy.speed as f32;
-        let mut dir = (Vec3::new(0.0, 0.0, 0.0) - tf.translation).normalize();
-        dir.z = 0.0;
+        let dir = (player.translation().truncate() - tf.translation.truncate()).normalize().extend(0.0);
         tf.translation += dir * dt;
     }
 }
