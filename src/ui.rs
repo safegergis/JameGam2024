@@ -11,12 +11,7 @@ impl Plugin for UiPlugin {
 }
 #[derive(Component)]
 struct XpBar;
-fn update_xp_bar(
-    mut commands: Commands,
-    asset_server: Res<AssetServer>,
-    player_q: Query<&PlayerXp>,
-    mut xp_bar_q: Query<&mut Node, With<XpBar>>,
-) {
+fn update_xp_bar(player_q: Query<&PlayerXp>, mut xp_bar_q: Query<&mut Node, With<XpBar>>) {
     let player_xp = player_q.single();
     let mut xp_bar = xp_bar_q.single_mut();
     xp_bar.width = Val::Px(player_xp.xp as f32 * 600.0 / 1000.0);
@@ -48,7 +43,7 @@ fn setup_ui(mut commands: Commands, asset_server: Res<AssetServer>) {
                             font_size: 24.0,
                             ..default()
                         },
-                        TextColor(Color::WHITE),
+                        TextColor(Color::BLACK),
                     ));
                     parent
                         .spawn((
@@ -59,7 +54,6 @@ fn setup_ui(mut commands: Commands, asset_server: Res<AssetServer>) {
                                 border: UiRect::all(Val::Px(3.0)),
                                 ..default()
                             },
-                            BorderRadius::all(Val::Px(25.0)),
                             BackgroundColor(Color::srgba(0.3, 0.3, 0.3, 0.5)),
                             BorderColor(Color::BLACK),
                         ))
@@ -67,17 +61,11 @@ fn setup_ui(mut commands: Commands, asset_server: Res<AssetServer>) {
                             parent.spawn((
                                 ImageNode {
                                     image: asset_server.load("xp-bar.png"),
-                                    image_mode: NodeImageMode::Sliced(TextureSlicer {
-                                        border: BorderRect::rectangle(60.0, 30.0),
-                                        center_scale_mode: SliceScaleMode::Tile {
-                                            stretch_value: 1.0,
-                                        },
-                                        sides_scale_mode: SliceScaleMode::Tile {
-                                            stretch_value: 1.0,
-                                        },
-                                        max_corner_scale: 0.2,
-                                    }),
-
+                                    image_mode: NodeImageMode::Tiled {
+                                        tile_x: true,
+                                        tile_y: false,
+                                        stretch_value: 1.0,
+                                    },
                                     ..default()
                                 },
                                 Node {
@@ -85,7 +73,6 @@ fn setup_ui(mut commands: Commands, asset_server: Res<AssetServer>) {
                                     height: Val::Px(24.0),
                                     ..default()
                                 },
-                                BorderRadius::all(Val::Px(25.0)),
                                 XpBar,
                             ));
                         });

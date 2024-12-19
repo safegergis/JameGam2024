@@ -25,7 +25,7 @@ pub struct EnemyHealth {
 }
 #[derive(Component)]
 pub struct EnemyXp {
-    pub xp: i32,
+    pub xp: u32,
 }
 #[derive(Component)]
 pub struct ChasePlayer {
