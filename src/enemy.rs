@@ -84,12 +84,12 @@ fn spawn_enemy(
 }
 
 #[derive(Component)]
-struct Wiggle {
-    rotate_speed: f32,
-    rotate_amount: f32,
-    scale_speed: f32,
-    scale_amount: f32,
-    offset: f32,
+pub struct Wiggle {
+    pub rotate_speed: f32,
+    pub rotate_amount: f32,
+    pub scale_speed: f32,
+    pub scale_amount: f32,
+    pub offset: f32,
 }
 
 fn wiggle(time: Res<Time>, mut q: Query<(&mut Transform, &Wiggle)>) {

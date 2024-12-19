@@ -4,11 +4,13 @@ use bevy::input::keyboard::KeyCode;
 use bevy::input::mouse::MouseButton;
 use bevy::prelude::*;
 use bevy::window::PrimaryWindow;
+
 pub struct PlayerPlugin;
 
 impl Plugin for PlayerPlugin {
     fn build(&self, app: &mut App) {
-        app.add_systems(Startup, (spawn_player, spawn_shield));
+        app.add_systems(Startup, spawn_player);
+        app.add_systems(PostStartup, spawn_shield);
         app.add_systems(
             Update,
             (
@@ -19,6 +21,7 @@ impl Plugin for PlayerPlugin {
                 camera_follow,
             ),
         );
+        app.add_systems(FixedUpdate, shield_movement);
     }
 }
 const LERP_FACTOR: f32 = 2.0;
@@ -39,8 +42,8 @@ struct ShieldCircle {
     number: u32,
 }
 #[derive(Component)]
-struct Shield {
-    damage: u32,
+pub struct Shield {
+    pub damage: u32,
 }
 
 fn spawn_player(
@@ -70,6 +73,7 @@ fn spawn_player(
         AnimationTimer(Timer::from_seconds(0.1, TimerMode::Repeating)),
         Transform::from_xyz(0.0, 0.0, 0.0),
         YSort { z: 64.0 },
+        ShieldCircle { number: 3 },
     ));
 }
 
@@ -105,11 +109,6 @@ fn player_movement(
     if current_speed > player.max_velocity {
         player.velocity = player.velocity.normalize() * player.max_velocity;
     }
-
-    // println!(
-    //     "velocity: {:?} translation: {:?}, speed: {:?}, acceleration: {:?}",
-    //     player.velocity, transform.translation, current_speed, acceleration_vector
-    // );
 
     // Move player based on velocity
     transform.translation += (player.velocity * time.delta_secs()).extend(0.0);
@@ -169,29 +168,39 @@ fn fire_projectile(
                 },
                 Transform::from_translation(player_position.extend(0.0)),
                 Sprite::from_image(asset_server.load("candycane_shuriken.png")),
-                Rotate,
+                Rotate { speed: -30.0 },
             ));
         }
     }
 }
-const SHIELD_OFFSET: f32 = 10.0;
+const SHIELD_OFFSET: f32 = 50.0;
 fn spawn_shield(
     mut commands: Commands,
-    q_player: Query<(&Transform, &ShieldCircle), With<Player>>,
+    q_player: Query<(Entity, &Transform, &ShieldCircle), With<Player>>,
     asset_server: Res<AssetServer>,
 ) {
-    let (player_transform, shield_circle) = q_player.single();
+    let (player_entity, player_transform, shield_circle) = q_player.single();
     for i in 0..shield_circle.number {
-        commands.spawn((
-            Shield { damage: 10 },
-            Transform::from_translation({
-                let angle = (i as f32) * 2.0 * std::f32::consts::PI / (shield_circle.number as f32);
-                let x = SHIELD_OFFSET * angle.cos();
-                let y = SHIELD_OFFSET * angle.sin();
-                player_transform.translation + Vec3::new(x, y, 0.0)
-            }),
-            Sprite::from_image(asset_server.load("projectile.png")),
-        ));
+        let child = commands
+            .spawn((
+                Shield { damage: 10 },
+                Transform::from_translation({
+                    let angle =
+                        (i as f32) * 2.0 * std::f32::consts::PI / (shield_circle.number as f32);
+                    let x = SHIELD_OFFSET * angle.cos();
+                    let y = SHIELD_OFFSET * angle.sin();
+                    player_transform.translation + Vec3::new(x, y, 0.0)
+                }),
+                Sprite::from_image(asset_server.load("chestnut.png")),
+            ))
+            .id();
+        commands.entity(player_entity).add_child(child);
+    }
+}
+fn shield_movement(mut shield_query: Query<&mut Transform, (With<Shield>, Without<Player>)>) {
+    for mut transform in shield_query.iter_mut() {
+        let rotation = Quat::from_rotation_z(0.05);
+        transform.translation = rotation * transform.translation;
     }
 }
 
