@@ -1,15 +1,13 @@
 //! Shows how to create graphics that snap to the pixel grid by rendering to a texture in 2D
 
 use bevy::{
-    prelude::*,
-    render::{
+    color, prelude::*, render::{
         camera::RenderTarget,
         render_resource::{
             Extent3d, TextureDescriptor, TextureDimension, TextureFormat, TextureUsages,
         },
         view::RenderLayers,
-    },
-    window::WindowResized,
+    }, window::WindowResized
 };
 
 /// In-game resolution width.
@@ -23,7 +21,7 @@ pub const RES_HEIGHT: u32 = 270;
 const PIXEL_PERFECT_LAYERS: RenderLayers = RenderLayers::layer(0);
 
 /// Render layers for high-resolution rendering.
-const HIGH_RES_LAYERS: RenderLayers = RenderLayers::layer(1);
+pub const HIGH_RES_LAYERS: RenderLayers = RenderLayers::layer(1);
 
 pub struct CameraPlugin;
 
@@ -97,6 +95,7 @@ fn setup_camera(mut commands: Commands, mut images: ResMut<Assets<Image>>) {
         Camera {
             // render before the "main pass" camera
             order: -1,
+            clear_color: ClearColorConfig::Custom(Color::srgb(0.92, 0.92, 0.92)),
             target: RenderTarget::Image(image_handle.clone()),
             ..default()
         },

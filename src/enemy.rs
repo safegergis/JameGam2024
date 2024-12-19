@@ -139,7 +139,7 @@ fn chase_player(
     mut q: Query<(&mut Transform, &ChasePlayer)>,
 ) {
     let (player, _player_transform) = q_player.single();
-    //println!("PlayerPositon coords: {}/{}", player.translation().x, player.translation().y);
+    //println!("PlayerPositon coords: {}/{}", player.translation().x, player.translation().y)
     for (mut tf, chase_player) in q.iter_mut() {
         let dt = time.delta_secs() * chase_player.speed as f32;
         let dir = (player.translation().truncate() - tf.translation.truncate())

@@ -4,12 +4,14 @@ mod enemy;
 mod player;
 mod ui;
 mod utils;
+mod background;
 
 use bevy::prelude::*;
 use camera::CameraPlugin;
 use collision::CollisionPlugin;
 use enemy::EnemyPlugin;
 use player::PlayerPlugin;
+use background::BackgroundPlugin;
 use ui::UiPlugin;
 
 fn main() {
@@ -18,6 +20,7 @@ fn main() {
         .add_plugins(EnemyPlugin)
         .add_plugins(PlayerPlugin)
         .add_plugins(CollisionPlugin)
+        .add_plugins(BackgroundPlugin)
         .add_plugins(UiPlugin)
         .run();
 }

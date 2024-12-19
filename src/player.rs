@@ -24,7 +24,7 @@ impl Plugin for PlayerPlugin {
         app.add_systems(FixedUpdate, shield_movement);
     }
 }
-const LERP_FACTOR: f32 = 2.0;
+const LERP_FACTOR: f32 = 4.0;
 
 #[derive(Component)]
 pub struct Player {
@@ -60,26 +60,59 @@ fn spawn_player(
     let texture_atlas_layout = texture_atlas_layouts.add(layout);
     // Use only the subset of sprites in the sheet that make up the run animation
     let animation_indices = AnimationIndices { first: 0, last: 2 };
-    commands.spawn((
-        Player {
-            velocity: Vec2::ZERO,
-            acceleration_rate: 500.0,
-            max_velocity: 100.0,
-        },
-        Sprite::from_atlas_image(
-            texture,
-            TextureAtlas {
-                layout: texture_atlas_layout,
-                index: animation_indices.first,
+    let player = commands
+        .spawn((
+            Player {
+                velocity: Vec2::ZERO,
+                acceleration_rate: 500.0,
+                max_velocity: 100.0,
             },
-        ),
-        animation_indices,
-        AnimationTimer(Timer::from_seconds(0.1, TimerMode::Repeating)),
-        Transform::from_xyz(0.0, 0.0, 0.0),
-        YSort { z: 64.0 },
-        ShieldCircle { number: 3 },
-        PlayerXp { xp: 0 },
-    ));
+            Sprite::from_atlas_image(
+                texture,
+                TextureAtlas {
+                    layout: texture_atlas_layout,
+                    index: animation_indices.first,
+                },
+            ),
+            animation_indices,
+            AnimationTimer(Timer::from_seconds(0.1, TimerMode::Repeating)),
+            Transform::from_xyz(0.0, 0.0, 0.0),
+            YSort { z: 32.0 },
+            ShieldCircle { number: 3 },
+            PlayerXp { xp: 0 },
+        ))
+        .id();
+
+    let texture = asset_server.load("Snowball484819.png");
+    let layout = TextureAtlasLayout::from_grid(UVec2::splat(48), 19, 1, None, None);
+    let texture_atlas_layout = texture_atlas_layouts.add(layout);
+    let animation_indices = AnimationIndices { first: 0, last: 18 };
+    let snowball_sprite = commands
+        .spawn((
+            Sprite::from_atlas_image(
+                texture,
+                TextureAtlas {
+                    layout: texture_atlas_layout,
+                    index: animation_indices.first,
+                },
+            ),
+            animation_indices,
+            AnimationTimer(Timer::from_seconds(0.05, TimerMode::Repeating)),
+            Transform::from_xyz(0.0, -20.0, 0.0),
+            YSort { z: -32.0 },
+        ))
+        .id();
+
+    let snowmball_shadow = commands
+        .spawn((
+            Transform::from_xyz(0.0, -22.0, 0.0),
+            Sprite::from_image(asset_server.load("Shadow.png")),
+            YSort { z: -100.0 },
+        ))
+        .id();
+
+    commands.entity(player).add_child(snowball_sprite);
+    commands.entity(player).add_child(snowmball_shadow);
 }
 
 fn player_movement(
@@ -168,7 +201,7 @@ fn fire_projectile(
         if mouse_button.just_pressed(MouseButton::Left) {
             commands.spawn((
                 Projectile {
-                    velocity: 350.0,
+                    velocity: 550.0,
                     direction: projectile_direction,
                 },
                 Transform::from_translation(player_position.extend(0.0)),
