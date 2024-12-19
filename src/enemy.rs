@@ -1,5 +1,3 @@
-use crate::player::Projectile;
-use crate::player::ProjectileDurability;
 use crate::utils::YSort;
 use bevy::prelude::*;
 use rand::Rng;
@@ -10,20 +8,18 @@ impl Plugin for EnemyPlugin {
         app.insert_resource(EnemyTimer(Timer::from_seconds(0.01, TimerMode::Repeating)));
         app.add_systems(
             Update,
-            (
-                chase_player,
-                spawn_enemy,
-                wiggle,
-                y_sort,
-                enemy_collision,
-                projectiles_collision,
-            ),
+            (chase_player, spawn_enemy, wiggle, y_sort, kill_dead_enemies),
         );
     }
 }
 
 #[derive(Resource)]
 struct EnemyTimer(Timer);
+
+#[derive(Component)]
+pub struct EnemyHealth {
+    pub health: i32,
+}
 
 fn spawn_enemy(
     time: Res<Time>,
@@ -42,6 +38,7 @@ fn spawn_enemy(
                 Transform::from_xyz(boundary_pt.x, boundary_pt.y, 2.0),
                 YSort { z: 32.0 },
                 Enemy { speed: 25.0 },
+                EnemyHealth { health: 100 },
             ))
             .id();
 
@@ -100,10 +97,16 @@ fn wiggle(time: Res<Time>, mut q: Query<(&mut Transform, &Wiggle)>) {
 }
 
 #[derive(Component)]
-struct Enemy {
+pub struct Enemy {
     speed: f32,
 }
-
+fn kill_dead_enemies(mut commands: Commands, q: Query<(&EnemyHealth, Entity)>) {
+    for (health, entity) in q.iter() {
+        if health.health <= 0 {
+            commands.entity(entity).despawn_recursive();
+        }
+    }
+}
 fn chase_player(time: Res<Time>, mut q: Query<(&mut Transform, &Enemy)>) {
     for (mut tf, enemy) in q.iter_mut() {
         let dt = time.delta_secs() * enemy.speed as f32;
@@ -116,49 +119,5 @@ fn chase_player(time: Res<Time>, mut q: Query<(&mut Transform, &Enemy)>) {
 fn y_sort(mut q: Query<(&mut Transform, &YSort)>) {
     for (mut tf, ysort) in q.iter_mut() {
         tf.translation.z = ysort.z - (1.0f32 / (1.0f32 + (2.0f32.powf(-0.01 * tf.translation.y))));
-    }
-}
-fn enemy_collision(mut q: Query<&mut Transform, With<Enemy>>) {
-    let mut combinations = q.iter_combinations_mut();
-    while let Some([mut tf1, mut tf2]) = combinations.fetch_next() {
-        let pos1 = tf1.translation.truncate();
-        let pos2 = tf2.translation.truncate();
-
-        // Use a radius of 32 pixels for collision
-        let collision_dist = 16.0;
-        let dist = pos1.distance(pos2);
-
-        if dist < collision_dist {
-            // Calculate push direction and amount
-            let push_dir = (pos1 - pos2).normalize();
-            let push_amount = (collision_dist - dist) / 2.0;
-
-            // Push both enemies apart equally
-            tf1.translation += (push_dir * push_amount).extend(0.0);
-            tf2.translation += (-push_dir * push_amount).extend(0.0);
-        }
-    }
-}
-fn projectiles_collision(
-    mut commands: Commands,
-    mut projectiles_q: Query<(&Transform, &mut ProjectileDurability), With<Projectile>>,
-    enemies_q: Query<(Entity, &Transform), With<Enemy>>,
-) {
-    for (tf1, mut projectile_durability) in projectiles_q.iter_mut() {
-        for (enemy_id, tf2) in enemies_q.iter() {
-            let pos1 = tf1.translation.truncate();
-            let pos2 = tf2.translation.truncate();
-            let dist = pos1.distance(pos2);
-            if dist < 16.0 {
-                if projectile_durability.durability > 0 {
-                    commands.entity(enemy_id).despawn_recursive();
-                    println!("enemy destroyed");
-                    projectile_durability.durability -= 1;
-                } else {
-                    commands.entity(enemy_id).despawn_recursive();
-                    println!("enemy destroyed");
-                }
-            }
-        }
     }
 }

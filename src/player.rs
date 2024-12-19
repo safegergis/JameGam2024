@@ -17,7 +17,6 @@ impl Plugin for PlayerPlugin {
                 projectile_movement,
                 animate_sprite,
                 camera_follow,
-                break_projectiles,
             ),
         );
     }
@@ -34,10 +33,6 @@ struct Player {
 pub struct Projectile {
     velocity: f32,
     direction: Vec2,
-}
-#[derive(Component)]
-pub struct ProjectileDurability {
-    pub durability: u32,
 }
 
 fn spawn_player(
@@ -140,14 +135,14 @@ fn projectile_movement(time: Res<Time>, mut query: Query<(&mut Transform, &Proje
 fn fire_projectile(
     q_window: Query<&Window, With<PrimaryWindow>>,
     q_camera: Query<(&Camera, &GlobalTransform), With<OuterCamera>>,
-    q_incamera: Query<(&Camera, &GlobalTransform), With<InGameCamera>>,
+    q_incamera: Query<&GlobalTransform, With<InGameCamera>>,
     q_player: Query<&Transform, With<Player>>,
     mut commands: Commands,
     asset_server: Res<AssetServer>,
     mouse_button: Res<ButtonInput<MouseButton>>,
 ) {
     let (camera, camera_transform) = q_camera.single();
-    let (cameraIn, cameraIn_transform) = q_incamera.single();
+    let camera_in_transform = q_incamera.single();
     let window = q_window.single();
 
     if let Some(world_position) = window
@@ -161,7 +156,7 @@ fn fire_projectile(
         .cursor_position()
         .and_then(|cursor| camera.viewport_to_world_2d(camera_transform, cursor).ok())
     {
-        let new_world_position = world_position + cameraIn_transform.translation().truncate();
+        let new_world_position = world_position + camera_in_transform.translation().truncate();
         let player_transform = q_player.single();
         let player_position = player_transform.translation.truncate();
         let projectile_direction = (new_world_position - player_position).normalize();
@@ -174,21 +169,11 @@ fn fire_projectile(
                 Transform::from_translation(player_position.extend(0.0)),
                 Sprite::from_image(asset_server.load("candycane_shuriken.png")),
                 Rotate,
-                ProjectileDurability { durability: 5 },
             ));
         }
     }
 }
-fn break_projectiles(
-    mut commands: Commands,
-    mut query: Query<(&mut ProjectileDurability, Entity)>,
-) {
-    for (mut durability, entity) in query.iter_mut() {
-        if durability.durability == 0 {
-            commands.entity(entity).despawn_recursive();
-        }
-    }
-}
+
 #[derive(Component)]
 struct AnimationIndices {
     first: usize,
