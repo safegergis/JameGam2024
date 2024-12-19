@@ -8,7 +8,7 @@ pub struct PlayerPlugin;
 
 impl Plugin for PlayerPlugin {
     fn build(&self, app: &mut App) {
-        app.add_systems(Startup, spawn_player);
+        app.add_systems(Startup, (spawn_player, spawn_shield));
         app.add_systems(
             Update,
             (
@@ -33,6 +33,14 @@ pub struct Player {
 pub struct Projectile {
     velocity: f32,
     direction: Vec2,
+}
+#[derive(Component)]
+struct ShieldCircle {
+    number: u32,
+}
+#[derive(Component)]
+struct Shield {
+    damage: u32,
 }
 
 fn spawn_player(
@@ -164,6 +172,26 @@ fn fire_projectile(
                 Rotate,
             ));
         }
+    }
+}
+const SHIELD_OFFSET: f32 = 10.0;
+fn spawn_shield(
+    mut commands: Commands,
+    q_player: Query<(&Transform, &ShieldCircle), With<Player>>,
+    asset_server: Res<AssetServer>,
+) {
+    let (player_transform, shield_circle) = q_player.single();
+    for i in 0..shield_circle.number {
+        commands.spawn((
+            Shield { damage: 10 },
+            Transform::from_translation({
+                let angle = (i as f32) * 2.0 * std::f32::consts::PI / (shield_circle.number as f32);
+                let x = SHIELD_OFFSET * angle.cos();
+                let y = SHIELD_OFFSET * angle.sin();
+                player_transform.translation + Vec3::new(x, y, 0.0)
+            }),
+            Sprite::from_image(asset_server.load("projectile.png")),
+        ));
     }
 }
 
