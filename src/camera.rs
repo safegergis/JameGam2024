@@ -56,7 +56,9 @@ pub struct InGameCamera;
 pub struct OuterCamera;
 
 #[derive(Component)]
-pub struct Rotate;
+pub struct Rotate {
+    pub speed: f32,
+}
 
 fn setup_camera(mut commands: Commands, mut images: ResMut<Assets<Image>>) {
     let canvas_size = Extent3d {
@@ -111,9 +113,9 @@ fn setup_camera(mut commands: Commands, mut images: ResMut<Assets<Image>>) {
 }
 
 /// Rotates entities to demonstrate grid snapping.
-fn rotate(time: Res<Time>, mut transforms: Query<&mut Transform, With<Rotate>>) {
-    for mut transform in &mut transforms {
-        let dt = time.delta_secs() * -30.0 as f32;
+fn rotate(time: Res<Time>, mut rotates: Query<(&mut Transform, &Rotate), With<Rotate>>) {
+    for (mut transform, rotate) in &mut rotates {
+        let dt = time.delta_secs() * rotate.speed;
         transform.rotate_z(dt);
     }
 }

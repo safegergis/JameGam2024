@@ -1,31 +1,107 @@
 use crate::enemy::Enemy;
 use crate::enemy::EnemyHealth;
+use crate::enemy::EnemyXp;
+use crate::player::Player;
+use crate::player::PlayerXp;
 use crate::player::Projectile;
+use crate::player::Shield;
 use bevy::prelude::*;
 
+const KNOCKBACK_STRENGTH: f32 = 7.0;
+const FRICTION: f32 = 0.5;
+
 pub struct CollisionPlugin;
+
+#[derive(Component)]
+struct Knockback {
+    direction: Vec2,
+    strength: f32,
+}
 
 impl Plugin for CollisionPlugin {
     fn build(&self, app: &mut App) {
         app.add_systems(FixedUpdate, projectiles_collision);
         app.add_systems(FixedUpdate, enemy_collision);
+        app.add_systems(FixedUpdate, knockback_system);
+        app.add_systems(FixedUpdate, shield_collision);
+        app.add_systems(FixedUpdate, xp_collision);
     }
 }
+fn knockback_system(
+    mut q: Query<(&mut Transform, &mut Knockback, Entity)>,
+    mut commands: Commands,
+) {
+    for (mut tf, mut knockback, entity) in q.iter_mut() {
+        let velocity = knockback.direction * knockback.strength;
+        tf.translation += velocity.extend(0.0);
 
+        knockback.strength = (knockback.strength - FRICTION).max(0.0);
+
+        if knockback.strength <= 0.0 {
+            commands.entity(entity).remove::<Knockback>();
+        }
+    }
+}
+fn xp_collision(
+    mut commands: Commands,
+    xp_q: Query<(&Transform, Entity, &EnemyXp), (Without<Player>)>,
+    mut player_q: Query<(&Transform, &mut PlayerXp), With<Player>>,
+) {
+    let (player_tf, mut player_xp) = player_q.single_mut();
+    for (xp_tf, xp_entity, xp) in xp_q.iter() {
+        let pos1 = xp_tf.translation.truncate();
+        let pos2 = player_tf.translation.truncate();
+        let dist = pos1.distance(pos2);
+        if dist < 16.0 {
+            player_xp.xp += xp.xp;
+            println!("Player XP: {}", player_xp.xp);
+            commands.entity(xp_entity).despawn_recursive();
+        }
+    }
+}
 fn projectiles_collision(
     mut commands: Commands,
-    projectiles_q: Query<(Entity, &Transform), With<Projectile>>,
-    mut enemies_q: Query<(&mut EnemyHealth, &Transform), With<Enemy>>,
+    projectiles_q: Query<(Entity, &Transform), (With<Projectile>, Without<Enemy>)>,
+    mut enemies_q: Query<(&mut EnemyHealth, &Transform, Entity), With<Enemy>>,
 ) {
-    for (entity, tf1) in projectiles_q.iter() {
-        for (mut health, tf2) in enemies_q.iter_mut() {
-            let pos1 = tf1.translation.truncate();
-            let pos2 = tf2.translation.truncate();
+    for (projectile_entity, projectile_tf) in projectiles_q.iter() {
+        for (mut health, enemy_tf, enemy_entity) in enemies_q.iter_mut() {
+            let pos1 = projectile_tf.translation.truncate();
+            let pos2 = enemy_tf.translation.truncate();
             let dist = pos1.distance(pos2);
             if dist < 16.0 {
                 health.health -= 34;
                 println!("enemy destroyed");
-                commands.entity(entity).despawn_recursive();
+                // Apply knockback to enemy
+                let knockback_direction = (pos2 - pos1).normalize();
+                commands.entity(enemy_entity).insert(Knockback {
+                    direction: knockback_direction,
+                    strength: KNOCKBACK_STRENGTH,
+                });
+                commands.entity(projectile_entity).despawn_recursive();
+            }
+        }
+    }
+}
+fn shield_collision(
+    mut commands: Commands,
+    q_player: Query<&Transform, With<Player>>,
+    q_shield: Query<(&GlobalTransform, &Shield), With<Shield>>,
+    mut q_enemy: Query<(&Transform, &mut EnemyHealth, Entity), (With<Enemy>, Without<Shield>)>,
+) {
+    let player_tf = q_player.single();
+    for (shield_tf, shield) in q_shield.iter() {
+        for (enemy_tf, mut enemy_health, enemy_entity) in q_enemy.iter_mut() {
+            let pos1 = shield_tf.translation().truncate();
+            let pos2 = enemy_tf.translation.truncate();
+            let dist = pos1.distance(pos2);
+            if dist < 16.0 {
+                enemy_health.health -= shield.damage as i32;
+                let knockback_direction = (pos2 - player_tf.translation.truncate()).normalize();
+                commands.entity(enemy_entity).insert(Knockback {
+                    direction: knockback_direction,
+                    strength: KNOCKBACK_STRENGTH,
+                });
             }
         }
     }
