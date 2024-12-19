@@ -1,4 +1,4 @@
-use crate::camera::InGameCamera;
+use crate::{camera::InGameCamera, utils::YSort};
 use bevy::prelude::*;
 use rand::Rng;
 use std::collections::HashSet;
@@ -114,6 +114,7 @@ fn setup(
                         index: num_offset,
                     },
                 ),
+                YSort{z:-100.0},
             )).id();
 
             let mut o = 0;
