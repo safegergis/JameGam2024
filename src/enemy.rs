@@ -1,4 +1,4 @@
-use crate::pixel_grid_snap::InGameCamera;
+use crate::camera::InGameCamera;
 use crate::player::Player;
 use crate::utils::YSort;
 

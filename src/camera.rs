@@ -25,9 +25,9 @@ const PIXEL_PERFECT_LAYERS: RenderLayers = RenderLayers::layer(0);
 /// Render layers for high-resolution rendering.
 const HIGH_RES_LAYERS: RenderLayers = RenderLayers::layer(1);
 
-pub struct PixelSnapPlugin;
+pub struct CameraPlugin;
 
-impl Plugin for PixelSnapPlugin {
+impl Plugin for CameraPlugin {
     fn build(&self, app: &mut App) {
         app.add_plugins(DefaultPlugins.set(ImagePlugin::default_nearest()));
         app.add_systems(Startup, setup_camera);

@@ -1,4 +1,4 @@
-use crate::pixel_grid_snap::{InGameCamera, OuterCamera, Rotate};
+use crate::camera::{InGameCamera, OuterCamera, Rotate};
 use crate::utils::YSort;
 use bevy::input::keyboard::KeyCode;
 use bevy::input::mouse::MouseButton;
