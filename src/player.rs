@@ -45,6 +45,10 @@ struct ShieldCircle {
 pub struct Shield {
     pub damage: u32,
 }
+#[derive(Component)]
+pub struct PlayerXp {
+    pub xp: u32,
+}
 
 fn spawn_player(
     mut commands: Commands,
@@ -74,6 +78,7 @@ fn spawn_player(
         Transform::from_xyz(0.0, 0.0, 0.0),
         YSort { z: 64.0 },
         ShieldCircle { number: 3 },
+        PlayerXp { xp: 0 },
     ));
 }
 

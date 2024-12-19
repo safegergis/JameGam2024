@@ -1,6 +1,8 @@
 use crate::enemy::Enemy;
 use crate::enemy::EnemyHealth;
+use crate::enemy::EnemyXp;
 use crate::player::Player;
+use crate::player::PlayerXp;
 use crate::player::Projectile;
 use crate::player::Shield;
 use bevy::prelude::*;
@@ -22,6 +24,7 @@ impl Plugin for CollisionPlugin {
         app.add_systems(FixedUpdate, enemy_collision);
         app.add_systems(FixedUpdate, knockback_system);
         app.add_systems(FixedUpdate, shield_collision);
+        app.add_systems(FixedUpdate, xp_collision);
     }
 }
 fn knockback_system(
@@ -36,6 +39,23 @@ fn knockback_system(
 
         if knockback.strength <= 0.0 {
             commands.entity(entity).remove::<Knockback>();
+        }
+    }
+}
+fn xp_collision(
+    mut commands: Commands,
+    xp_q: Query<(&Transform, Entity), (With<EnemyXp>, Without<Player>)>,
+    mut player_q: Query<(&Transform, &mut PlayerXp), With<Player>>,
+) {
+    let (player_tf, mut player_xp) = player_q.single_mut();
+    for (xp_tf, xp_entity) in xp_q.iter() {
+        let pos1 = xp_tf.translation.truncate();
+        let pos2 = player_tf.translation.truncate();
+        let dist = pos1.distance(pos2);
+        if dist < 16.0 {
+            player_xp.xp += 25;
+            println!("Player XP: {}", player_xp.xp);
+            commands.entity(xp_entity).despawn_recursive();
         }
     }
 }

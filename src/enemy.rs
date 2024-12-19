@@ -23,7 +23,14 @@ struct EnemyTimer(Timer);
 pub struct EnemyHealth {
     pub health: i32,
 }
-
+#[derive(Component)]
+pub struct EnemyXp {
+    pub xp: i32,
+}
+#[derive(Component)]
+pub struct ChasePlayer {
+    pub speed: f32,
+}
 fn spawn_enemy(
     q_camera: Query<(&Camera, &GlobalTransform), With<InGameCamera>>,
     time: Res<Time>,
@@ -46,7 +53,8 @@ fn spawn_enemy(
                     2.0,
                 ),
                 YSort { z: 32.0 },
-                Enemy { speed: 25.0 },
+                Enemy,
+                ChasePlayer { speed: 25.0 },
                 EnemyHealth { health: 100 },
             ))
             .id();
@@ -106,13 +114,21 @@ fn wiggle(time: Res<Time>, mut q: Query<(&mut Transform, &Wiggle)>) {
 }
 
 #[derive(Component)]
-pub struct Enemy {
-    speed: f32,
-}
-fn kill_dead_enemies(mut commands: Commands, q: Query<(&EnemyHealth, Entity)>) {
-    for (health, entity) in q.iter() {
+pub struct Enemy;
+fn kill_dead_enemies(
+    mut commands: Commands,
+    q: Query<(&EnemyHealth, &Transform, Entity), Without<EnemyXp>>,
+    asset_server: Res<AssetServer>,
+) {
+    for (health, transform, entity) in q.iter() {
         if health.health <= 0 {
             commands.entity(entity).despawn_recursive();
+            commands.spawn((
+                EnemyXp { xp: 10 },
+                Sprite::from_image(asset_server.load("projectile.png")),
+                Transform::from_xyz(transform.translation.x, transform.translation.y, 0.0),
+                ChasePlayer { speed: 100.0 },
+            ));
         }
     }
 }
@@ -120,12 +136,12 @@ fn kill_dead_enemies(mut commands: Commands, q: Query<(&EnemyHealth, Entity)>) {
 fn chase_player(
     time: Res<Time>,
     q_player: Query<(&GlobalTransform, &Player)>,
-    mut q: Query<(&mut Transform, &Enemy)>,
+    mut q: Query<(&mut Transform, &ChasePlayer)>,
 ) {
     let (player, _player_transform) = q_player.single();
     //println!("PlayerPositon coords: {}/{}", player.translation().x, player.translation().y);
-    for (mut tf, enemy) in q.iter_mut() {
-        let dt = time.delta_secs() * enemy.speed as f32;
+    for (mut tf, chase_player) in q.iter_mut() {
+        let dt = time.delta_secs() * chase_player.speed as f32;
         let dir = (player.translation().truncate() - tf.translation.truncate())
             .normalize()
             .extend(0.0);
