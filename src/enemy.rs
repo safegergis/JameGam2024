@@ -125,7 +125,7 @@ fn kill_dead_enemies(
             commands.entity(entity).despawn_recursive();
             commands.spawn((
                 EnemyXp { xp: 10 },
-                Sprite::from_image(asset_server.load("projectile.png")),
+                Sprite::from_image(asset_server.load("xp.png")),
                 Transform::from_xyz(transform.translation.x, transform.translation.y, 0.0),
                 ChasePlayer { speed: 100.0 },
             ));
