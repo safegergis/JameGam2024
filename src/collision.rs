@@ -71,7 +71,7 @@ fn shield_collision(
 ) {
     let player_tf = q_player.single();
     for (shield_tf, shield) in q_shield.iter() {
-        for (mut enemy_tf, mut enemy_health, enemy_entity) in q_enemy.iter_mut() {
+        for (enemy_tf, mut enemy_health, enemy_entity) in q_enemy.iter_mut() {
             let pos1 = shield_tf.translation().truncate();
             let pos2 = enemy_tf.translation.truncate();
             let dist = pos1.distance(pos2);
