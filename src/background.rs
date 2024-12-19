@@ -19,9 +19,9 @@ fn setup(
     let texture_atlas_layout = texture_atlas_layouts.add(layout);
     // Use only the subset of sprites in the sheet that make up the run animation
 
-    let circle = Circle::new(1000.0);
+    let circle = Rectangle::new(1000.0, 1000.0);
     let mut i = 0;
-    while i < 300 {
+    while i < 70 {
         let boundary_pt = circle.sample_interior(&mut rand::thread_rng()).extend(-100.0);
         let num_offset = rand::thread_rng().gen_range(1..13);
         commands.spawn((
