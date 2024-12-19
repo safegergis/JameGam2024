@@ -83,10 +83,10 @@ fn spawn_player(
         ))
         .id();
 
-    let texture = asset_server.load("Snowball484819.png");
-    let layout = TextureAtlasLayout::from_grid(UVec2::splat(48), 19, 1, None, None);
+    let texture = asset_server.load("Snowball48488.png");
+    let layout = TextureAtlasLayout::from_grid(UVec2::splat(48), 7, 1, None, None);
     let texture_atlas_layout = texture_atlas_layouts.add(layout);
-    let animation_indices = AnimationIndices { first: 0, last: 18 };
+    let animation_indices = AnimationIndices { first: 0, last: 6 };
     let snowball_sprite = commands
         .spawn((
             Sprite::from_atlas_image(
@@ -97,7 +97,7 @@ fn spawn_player(
                 },
             ),
             animation_indices,
-            AnimationTimer(Timer::from_seconds(0.05, TimerMode::Repeating)),
+            AnimationTimer(Timer::from_seconds(0.1, TimerMode::Repeating)),
             Transform::from_xyz(0.0, -20.0, 0.0),
             YSort { z: -32.0 },
         ))
