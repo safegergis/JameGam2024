@@ -18,6 +18,7 @@ impl Plugin for PlayerPlugin {
                 animate_sprite,
                 camera_follow,
             ),
+        );
     }
 }
 const LERP_FACTOR: f32 = 2.0;

@@ -1,6 +1,6 @@
-use crate::utils::YSort;
-use crate::player::Player;
 use crate::pixel_grid_snap::InGameCamera;
+use crate::player::Player;
+use crate::utils::YSort;
 
 use bevy::prelude::*;
 use rand::Rng;
@@ -13,7 +13,7 @@ impl Plugin for EnemyPlugin {
             Update,
             (chase_player, spawn_enemy, wiggle, y_sort, kill_dead_enemies),
         );
-
+    }
 }
 
 #[derive(Resource)]
@@ -40,7 +40,11 @@ fn spawn_enemy(
         let snowman_holder = commands
             .spawn((
                 Visibility::Visible,
-                Transform::from_xyz(boundary_pt.x + camera_transform.translation().x, boundary_pt.y + camera_transform.translation().y, 2.0),
+                Transform::from_xyz(
+                    boundary_pt.x + camera_transform.translation().x,
+                    boundary_pt.y + camera_transform.translation().y,
+                    2.0,
+                ),
                 YSort { z: 32.0 },
                 Enemy { speed: 25.0 },
                 EnemyHealth { health: 100 },
@@ -113,13 +117,18 @@ fn kill_dead_enemies(mut commands: Commands, q: Query<(&EnemyHealth, Entity)>) {
     }
 }
 
-
-fn chase_player(time: Res<Time>, q_player: Query<(&GlobalTransform, &Player)>, mut q: Query<(&mut Transform, &Enemy)>) {
+fn chase_player(
+    time: Res<Time>,
+    q_player: Query<(&GlobalTransform, &Player)>,
+    mut q: Query<(&mut Transform, &Enemy)>,
+) {
     let (player, _player_transform) = q_player.single();
     //println!("PlayerPositon coords: {}/{}", player.translation().x, player.translation().y);
     for (mut tf, enemy) in q.iter_mut() {
         let dt = time.delta_secs() * enemy.speed as f32;
-        let dir = (player.translation().truncate() - tf.translation.truncate()).normalize().extend(0.0);
+        let dir = (player.translation().truncate() - tf.translation.truncate())
+            .normalize()
+            .extend(0.0);
         tf.translation += dir * dt;
     }
 }
