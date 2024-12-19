@@ -126,7 +126,9 @@ fn chase_player(
     //println!("PlayerPositon coords: {}/{}", player.translation().x, player.translation().y);
     for (mut tf, enemy) in q.iter_mut() {
         let dt = time.delta_secs() * enemy.speed as f32;
-        let dir = (player.translation().truncate() - tf.translation.truncate())
+        let mut player_pos = player.translation().truncate();
+        player_pos.y -= 20.0;
+        let dir = (player_pos - tf.translation.truncate())
             .normalize()
             .extend(0.0);
         tf.translation += dir * dt;
