@@ -9,7 +9,7 @@ use crate::player::Shield;
 use bevy::prelude::*;
 
 const FLASH_DURATION: f32 = 0.05;
-const KNOCKBACK_STRENGTH: f32 = 7.0;
+const KNOCKBACK_STRENGTH: f32 = 4.0;
 const FRICTION: f32 = 0.5;
 
 pub struct CollisionPlugin;
@@ -30,6 +30,7 @@ impl Plugin for CollisionPlugin {
         app.add_systems(Update, flashing);
     }
 }
+
 fn knockback_system(
     mut q: Query<(&mut Transform, &mut Knockback, Entity)>,
     mut commands: Commands,
@@ -91,7 +92,7 @@ fn shield_collision(
     mut commands: Commands,
     q_player: Query<&Transform, With<Player>>,
     q_shield: Query<(&GlobalTransform, &Shield), With<Shield>>,
-    mut q_enemy: Query<(&Transform, &mut EnemyHealth, Entity, &Children), (With<Enemy>, Without<Shield>)>,
+    mut q_enemy: Query<(&Transform, &mut EnemyHealth, Entity, &Children), (With<Enemy>, Without<Shield>, Without<FlashingTimer>)>,
 ) {
     let player_tf = q_player.single();
     for (shield_tf, shield) in q_shield.iter() {
@@ -143,7 +144,7 @@ fn flashing (
 ) {
     for (mut timer, timer_e, mut timer_sprite) in flashing_query.iter_mut() { 
         print!("asd\n");
-        timer_sprite.color = Color::srgba(8., 8., 8., 1.); // bright white color 
+        timer_sprite.color = Color::srgba(12., 12., 12., 1.); // bright white color 
         
         timer.time_left -= time.delta_secs();
         
