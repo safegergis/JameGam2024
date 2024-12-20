@@ -19,6 +19,7 @@ impl Plugin for PlayerPlugin {
                 projectile_movement,
                 animate_sprite,
                 camera_follow,
+                scale_snowball_to_health,
             ),
         );
         app.add_systems(FixedUpdate, shield_movement);
@@ -28,8 +29,8 @@ const LERP_FACTOR: f32 = 4.0;
 
 #[derive(Component)]
 pub struct Player {
-    velocity: Vec2,
-    acceleration_rate: f32,
+    pub velocity: Vec2,
+    pub acceleration_rate: f32,
     max_velocity: f32,
 }
 #[derive(Component)]
@@ -49,6 +50,12 @@ pub struct Shield {
 pub struct PlayerXp {
     pub xp: u32,
 }
+#[derive(Component)]
+pub struct PlayerHealth {
+    pub hp: f32,
+}
+#[derive(Component)]
+pub struct PlayerSnowball;
 
 fn spawn_player(
     mut commands: Commands,
@@ -80,6 +87,7 @@ fn spawn_player(
             YSort { z: 32.0 },
             ShieldCircle { number: 3 },
             PlayerXp { xp: 0 },
+            PlayerHealth { hp: 10.0 },
         ))
         .id();
 
@@ -100,19 +108,20 @@ fn spawn_player(
             AnimationTimer(Timer::from_seconds(0.1, TimerMode::Repeating)),
             Transform::from_xyz(0.0, -20.0, 0.0),
             YSort { z: -32.0 },
+            PlayerSnowball,
         ))
         .id();
 
     let snowmball_shadow = commands
         .spawn((
-            Transform::from_xyz(0.0, -22.0, 0.0),
+            Transform::from_xyz(0.0, -2.0, 0.0),
             Sprite::from_image(asset_server.load("Shadow.png")),
             YSort { z: -100.0 },
         ))
         .id();
 
     commands.entity(player).add_child(snowball_sprite);
-    commands.entity(player).add_child(snowmball_shadow);
+    commands.entity(snowball_sprite).add_child(snowmball_shadow);
 }
 
 fn player_movement(
@@ -240,6 +249,21 @@ fn shield_movement(mut shield_query: Query<&mut Transform, (With<Shield>, Withou
         let rotation = Quat::from_rotation_z(0.05);
         transform.translation = rotation * transform.translation;
     }
+}
+fn scale_snowball_to_health(
+    mut q_player: Query<(&PlayerHealth, &mut Player)>,
+    mut q_player_snowball: Query<&mut Transform, With<PlayerSnowball>>,
+) {
+    let (player_health, mut player) = q_player.single_mut();
+    let mut player_snowball_tf = q_player_snowball.single_mut();
+    if player_health.hp > 10.0 {
+        player_snowball_tf.scale = Vec3::new(player_health.hp / 10.0, player_health.hp / 10.0, 1.0);
+        player.max_velocity = player_health.hp * 10.0;
+    }
+    println!(
+        "Player health: {}, max velocity: {}",
+        player_health.hp, player.max_velocity
+    );
 }
 
 #[derive(Component)]

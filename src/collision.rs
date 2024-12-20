@@ -3,6 +3,8 @@ use crate::enemy::Enemy;
 use crate::enemy::EnemyHealth;
 use crate::enemy::EnemyXp;
 use crate::player::Player;
+use crate::player::PlayerHealth;
+use crate::player::PlayerSnowball;
 use crate::player::PlayerXp;
 use crate::player::Projectile;
 use crate::player::Shield;
@@ -26,8 +28,9 @@ impl Plugin for CollisionPlugin {
         app.add_systems(FixedUpdate, enemy_collision);
         app.add_systems(FixedUpdate, knockback_system);
         app.add_systems(FixedUpdate, shield_collision);
-        app.add_systems(FixedUpdate, xp_collision);
+        app.add_systems(FixedUpdate, player_collision);
         app.add_systems(Update, flashing);
+
     }
 }
 
@@ -133,6 +136,33 @@ fn enemy_collision(mut q: Query<&mut Transform, With<Enemy>>) {
     }
 }
 
+fn player_collision(
+    mut commands: Commands,
+    mut q_player: Query<(&mut PlayerHealth, Entity, &mut Player), Without<PlayerSnowball>>,
+    mut q_player_snowball: Query<&mut GlobalTransform, With<PlayerSnowball>>,
+    q_enemy: Query<(&Transform, Entity), With<Enemy>>,
+) {
+    let (mut player_health, player_entity, mut player) = q_player.single_mut();
+    let player_snowball_tf = q_player_snowball.single_mut();
+    for (enemy_tf, enemy_entity) in q_enemy.iter() {
+        let pos1 = player_snowball_tf.translation().truncate();
+        let pos2 = enemy_tf.translation.truncate();
+        let dist = pos1.distance(pos2);
+        let collision_radius = 12.0 * player_snowball_tf.scale().x;
+
+        if dist < collision_radius {
+            let collision_direction = (pos2 - pos1).normalize();
+            player_health.hp -= 3.0;
+            player.velocity = player.velocity * 0.5;
+            commands.entity(enemy_entity).insert(Knockback {
+                direction: collision_direction,
+                strength: KNOCKBACK_STRENGTH,
+            });
+        }
+    }
+}
+
+
 
 #[derive(Component)]
 struct FlashingTimer { time_left: f32 }
@@ -153,3 +183,4 @@ fn flashing (
             commands.entity(timer_e).remove::<FlashingTimer>(); // removes the FlashingTimer component from the entity
         }
 } }
+
