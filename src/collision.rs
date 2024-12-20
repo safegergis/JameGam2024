@@ -1,3 +1,4 @@
+use crate::enemy;
 use crate::enemy::Enemy;
 use crate::enemy::EnemyHealth;
 use crate::enemy::EnemyXp;
@@ -7,6 +8,7 @@ use crate::player::Projectile;
 use crate::player::Shield;
 use bevy::prelude::*;
 
+const FLASH_DURATION: f32 = 0.05;
 const KNOCKBACK_STRENGTH: f32 = 7.0;
 const FRICTION: f32 = 0.5;
 
@@ -25,6 +27,7 @@ impl Plugin for CollisionPlugin {
         app.add_systems(FixedUpdate, knockback_system);
         app.add_systems(FixedUpdate, shield_collision);
         app.add_systems(FixedUpdate, xp_collision);
+        app.add_systems(Update, flashing);
     }
 }
 fn knockback_system(
@@ -62,10 +65,10 @@ fn xp_collision(
 fn projectiles_collision(
     mut commands: Commands,
     projectiles_q: Query<(Entity, &Transform), (With<Projectile>, Without<Enemy>)>,
-    mut enemies_q: Query<(&mut EnemyHealth, &Transform, Entity), With<Enemy>>,
+    mut enemies_q: Query<(&mut EnemyHealth, &Transform, Entity, &Children), With<Enemy>>,
 ) {
     for (projectile_entity, projectile_tf) in projectiles_q.iter() {
-        for (mut health, enemy_tf, enemy_entity) in enemies_q.iter_mut() {
+        for (mut health, enemy_tf, enemy_entity, enemy_children) in enemies_q.iter_mut() {
             let pos1 = projectile_tf.translation.truncate();
             let pos2 = enemy_tf.translation.truncate();
             let dist = pos1.distance(pos2);
@@ -79,6 +82,7 @@ fn projectiles_collision(
                     strength: KNOCKBACK_STRENGTH,
                 });
                 commands.entity(projectile_entity).despawn_recursive();
+                commands.entity(enemy_children[1]).insert(FlashingTimer { time_left: FLASH_DURATION, });
             }
         }
     }
@@ -87,17 +91,18 @@ fn shield_collision(
     mut commands: Commands,
     q_player: Query<&Transform, With<Player>>,
     q_shield: Query<(&GlobalTransform, &Shield), With<Shield>>,
-    mut q_enemy: Query<(&Transform, &mut EnemyHealth, Entity), (With<Enemy>, Without<Shield>)>,
+    mut q_enemy: Query<(&Transform, &mut EnemyHealth, Entity, &Children), (With<Enemy>, Without<Shield>)>,
 ) {
     let player_tf = q_player.single();
     for (shield_tf, shield) in q_shield.iter() {
-        for (enemy_tf, mut enemy_health, enemy_entity) in q_enemy.iter_mut() {
+        for (enemy_tf, mut enemy_health, enemy_entity, enemy_children) in q_enemy.iter_mut() {
             let pos1 = shield_tf.translation().truncate();
             let pos2 = enemy_tf.translation.truncate();
             let dist = pos1.distance(pos2);
             if dist < 16.0 {
                 enemy_health.health -= shield.damage as i32;
                 let knockback_direction = (pos2 - player_tf.translation.truncate()).normalize();
+                commands.entity(enemy_children[1]).insert(FlashingTimer { time_left: FLASH_DURATION, });
                 commands.entity(enemy_entity).insert(Knockback {
                     direction: knockback_direction,
                     strength: KNOCKBACK_STRENGTH,
@@ -126,3 +131,24 @@ fn enemy_collision(mut q: Query<&mut Transform, With<Enemy>>) {
         }
     }
 }
+
+
+#[derive(Component)]
+struct FlashingTimer { time_left: f32 }
+
+fn flashing (
+    mut commands: Commands, 
+    mut flashing_query: Query<(&mut FlashingTimer, Entity, &mut Sprite)>, 
+    time: Res<Time>, 
+) {
+    for (mut timer, timer_e, mut timer_sprite) in flashing_query.iter_mut() { 
+        print!("asd\n");
+        timer_sprite.color = Color::srgba(8., 8., 8., 1.); // bright white color 
+        
+        timer.time_left -= time.delta_secs();
+        
+        if timer.time_left <= 0.0 {
+            timer_sprite.color = Color::srgba(1.0, 1.0, 1.0, 1.0); // resets the color back to normal
+            commands.entity(timer_e).remove::<FlashingTimer>(); // removes the FlashingTimer component from the entity
+        }
+} }
