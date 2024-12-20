@@ -103,19 +103,21 @@ fn setup(
 
             let num_offset = rand::thread_rng().gen_range(1..13);
             //println!("PlayerPositon coords: {}/{}", pos.x, pos.y);
-            let background_holder = commands.spawn((
-                Transform::from_translation(pos),
-                GlobalTransform::default(),
-                Background,
-                Sprite::from_atlas_image(
-                    texture.clone(),
-                    TextureAtlas {
-                        layout: texture_atlas_layout.clone(),
-                        index: num_offset,
-                    },
-                ),
-                YSort{z:-100.0},
-            )).id();
+            let background_holder = commands
+                .spawn((
+                    Transform::from_translation(pos),
+                    GlobalTransform::default(),
+                    Background,
+                    Sprite::from_atlas_image(
+                        texture.clone(),
+                        TextureAtlas {
+                            layout: texture_atlas_layout.clone(),
+                            index: num_offset,
+                        },
+                    ),
+                    YSort { z: -100.0 },
+                ))
+                .id();
 
             let mut o = 0;
             while o < 5 {
@@ -125,18 +127,22 @@ fn setup(
                 //boundary_pt.x += pos.x;
                 //boundary_pt.y += pos.y;
                 let num_offset = rand::thread_rng().gen_range(1..13);
-                let background_prop = commands.spawn((
-                    Sprite::from_atlas_image(
-                        texture.clone(),
-                        TextureAtlas {
-                            layout: texture_atlas_layout.clone(),
-                            index: num_offset,
-                        },
-                    ),
-                    Transform::from_translation(boundary_pt),
-                )).id();
+                let background_prop = commands
+                    .spawn((
+                        Sprite::from_atlas_image(
+                            texture.clone(),
+                            TextureAtlas {
+                                layout: texture_atlas_layout.clone(),
+                                index: num_offset,
+                            },
+                        ),
+                        Transform::from_translation(boundary_pt),
+                    ))
+                    .id();
 
-                commands.entity(background_holder).add_child(background_prop);
+                commands
+                    .entity(background_holder)
+                    .add_child(background_prop);
 
                 o = o + 1;
             }

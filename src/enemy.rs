@@ -1,5 +1,7 @@
 use crate::camera::InGameCamera;
 use crate::player::Player;
+use crate::player::PlayerHealth;
+use crate::player::PlayerSnowball;
 use crate::utils::YSort;
 
 use bevy::prelude::*;
@@ -115,12 +117,17 @@ fn wiggle(time: Res<Time>, mut q: Query<(&mut Transform, &Wiggle)>) {
 
 #[derive(Component)]
 pub struct Enemy;
+const SNOWBALL_SCALE_INCREASE: Vec3 = Vec3::new(0.02, 0.02, 0.0);
 fn kill_dead_enemies(
     mut commands: Commands,
-    q: Query<(&EnemyHealth, &Transform, Entity), Without<EnemyXp>>,
+    enemy_q: Query<(&EnemyHealth, &Transform, Entity), (With<Enemy>, Without<EnemyXp>)>,
+    mut q_player: Query<&mut PlayerHealth, With<Player>>,
+    mut q_snowball: Query<&mut Transform, (With<PlayerSnowball>, Without<Enemy>)>,
     asset_server: Res<AssetServer>,
 ) {
-    for (health, transform, entity) in q.iter() {
+    let mut player_health = q_player.single_mut();
+    let mut snowball_transform = q_snowball.single_mut();
+    for (health, transform, entity) in enemy_q.iter() {
         if health.health <= 0 {
             commands.entity(entity).despawn_recursive();
             commands.spawn((
@@ -129,6 +136,7 @@ fn kill_dead_enemies(
                 Transform::from_xyz(transform.translation.x, transform.translation.y, 0.0),
                 ChasePlayer { speed: 100.0 },
             ));
+            player_health.hp += 0.2;
         }
     }
 }
