@@ -6,15 +6,19 @@ use crate::utils::YSort;
 
 use bevy::prelude::*;
 use rand::Rng;
-pub struct EnemyPlugin;
+pub struct EnemyPlugin<S: States> {
+    pub state: S,
+}
 
-impl Plugin for EnemyPlugin {
+impl<S: States> Plugin for EnemyPlugin<S> {
     fn build(&self, app: &mut App) {
         app.insert_resource(EnemyTimer(Timer::from_seconds(0.1, TimerMode::Repeating)));
         app.add_systems(
             Update,
-            (chase_player, spawn_enemy, wiggle, y_sort, kill_dead_enemies),
+            (chase_player, spawn_enemy, wiggle, y_sort, kill_dead_enemies)
+                .run_if(in_state(self.state.clone())),
         );
+        app.add_systems(OnExit(self.state.clone()), clean_up_enemies);
     }
 }
 
@@ -117,7 +121,6 @@ fn wiggle(time: Res<Time>, mut q: Query<(&mut Transform, &Wiggle)>) {
 
 #[derive(Component)]
 pub struct Enemy;
-const SNOWBALL_SCALE_INCREASE: Vec3 = Vec3::new(0.02, 0.02, 0.0);
 fn kill_dead_enemies(
     mut commands: Commands,
     enemy_q: Query<(&EnemyHealth, &Transform, Entity), (With<Enemy>, Without<EnemyXp>)>,
@@ -160,5 +163,10 @@ fn chase_player(
 fn y_sort(mut q: Query<(&mut Transform, &YSort)>) {
     for (mut tf, ysort) in q.iter_mut() {
         tf.translation.z = ysort.z - (1.0f32 / (1.0f32 + (2.0f32.powf(-0.01 * tf.translation.y))));
+    }
+}
+fn clean_up_enemies(mut commands: Commands, enemy_q: Query<Entity, With<Enemy>>) {
+    for entity in enemy_q.iter() {
+        commands.entity(entity).despawn_recursive();
     }
 }

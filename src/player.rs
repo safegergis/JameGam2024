@@ -1,16 +1,21 @@
 use crate::camera::{InGameCamera, OuterCamera, Rotate};
 use crate::utils::YSort;
+use crate::AppState;
 use bevy::input::keyboard::KeyCode;
 use bevy::input::mouse::MouseButton;
 use bevy::prelude::*;
 use bevy::window::PrimaryWindow;
+pub struct PlayerPlugin<S: States> {
+    pub state: S,
+}
 
-pub struct PlayerPlugin;
-
-impl Plugin for PlayerPlugin {
+impl<S: States> Plugin for PlayerPlugin<S> {
     fn build(&self, app: &mut App) {
-        app.add_systems(Startup, spawn_player);
-        app.add_systems(PostStartup, spawn_shield);
+        app.add_systems(OnEnter(self.state.clone()), spawn_player);
+        app.add_systems(
+            PostStartup,
+            spawn_shield.run_if(in_state(self.state.clone())),
+        );
         app.add_systems(
             Update,
             (
@@ -20,9 +25,14 @@ impl Plugin for PlayerPlugin {
                 animate_sprite,
                 camera_follow,
                 scale_snowball_to_health,
-            ),
+                kill_player,
+            )
+                .run_if(in_state(self.state.clone())),
         );
-        app.add_systems(FixedUpdate, shield_movement);
+        app.add_systems(
+            FixedUpdate,
+            shield_movement.run_if(in_state(self.state.clone())),
+        );
     }
 }
 const LERP_FACTOR: f32 = 4.0;
@@ -265,7 +275,13 @@ fn scale_snowball_to_health(
         player_health.hp, player.max_velocity
     );
 }
-
+fn kill_player(mut commands: Commands, q_player: Query<(Entity, &PlayerHealth), With<Player>>) {
+    let (player_entity, player_health) = q_player.single();
+    if player_health.hp <= 0.0 {
+        commands.entity(player_entity).despawn_recursive();
+        commands.set_state(AppState::GameOver);
+    }
+}
 #[derive(Component)]
 struct AnimationIndices {
     first: usize,

@@ -2,11 +2,17 @@ use crate::player::PlayerXp;
 use bevy::prelude::*;
 use bevy::ui::widget::NodeImageMode;
 
-pub struct UiPlugin;
-impl Plugin for UiPlugin {
+pub struct UiPlugin<S: States> {
+    pub state: S,
+}
+impl<S: States> Plugin for UiPlugin<S> {
     fn build(&self, app: &mut App) {
-        app.add_systems(Startup, setup_ui);
-        app.add_systems(FixedUpdate, update_xp_bar);
+        app.add_systems(OnEnter(self.state.clone()), setup_ui);
+        app.add_systems(
+            FixedUpdate,
+            update_xp_bar.run_if(in_state(self.state.clone())),
+        );
+        app.add_systems(OnExit(self.state.clone()), despawn_ui);
     }
 }
 #[derive(Component)]
@@ -78,4 +84,10 @@ fn setup_ui(mut commands: Commands, asset_server: Res<AssetServer>) {
                         });
                 });
         });
+}
+
+fn despawn_ui(mut commands: Commands, ui_query: Query<Entity, With<Node>>) {
+    for entity in ui_query.iter() {
+        commands.entity(entity).despawn_recursive();
+    }
 }

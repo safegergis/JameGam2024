@@ -1,4 +1,3 @@
-use crate::enemy;
 use crate::enemy::Enemy;
 use crate::enemy::EnemyHealth;
 use crate::enemy::EnemyXp;
@@ -14,7 +13,9 @@ const FLASH_DURATION: f32 = 0.05;
 const KNOCKBACK_STRENGTH: f32 = 4.0;
 const FRICTION: f32 = 0.5;
 
-pub struct CollisionPlugin;
+pub struct CollisionPlugin<S: States> {
+    pub state: S,
+}
 
 #[derive(Component)]
 struct Knockback {
@@ -22,14 +23,22 @@ struct Knockback {
     strength: f32,
 }
 
-impl Plugin for CollisionPlugin {
+impl<S: States> Plugin for CollisionPlugin<S> {
     fn build(&self, app: &mut App) {
-        app.add_systems(FixedUpdate, projectiles_collision);
-        app.add_systems(FixedUpdate, enemy_collision);
-        app.add_systems(FixedUpdate, knockback_system);
-        app.add_systems(FixedUpdate, shield_collision);
-        app.add_systems(FixedUpdate, player_collision);
-        app.add_systems(Update, flashing);
+        app.add_systems(
+            FixedUpdate,
+            (
+                projectiles_collision,
+                enemy_collision,
+                knockback_system,
+                shield_collision,
+                player_collision,
+                xp_collision,
+                flashing,
+            )
+                .run_if(in_state(self.state.clone())),
+        );
+        app.add_systems(OnExit(self.state.clone()), cleanup_xp);
     }
 }
 
@@ -188,5 +197,10 @@ fn flashing(
             timer_sprite.color = Color::srgba(1.0, 1.0, 1.0, 1.0); // resets the color back to normal
             commands.entity(timer_e).remove::<FlashingTimer>(); // removes the FlashingTimer component from the entity
         }
+    }
+}
+fn cleanup_xp(mut commands: Commands, xp_q: Query<Entity, With<EnemyXp>>) {
+    for entity in xp_q.iter() {
+        commands.entity(entity).despawn_recursive();
     }
 }
