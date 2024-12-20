@@ -30,7 +30,6 @@ impl Plugin for CollisionPlugin {
         app.add_systems(FixedUpdate, shield_collision);
         app.add_systems(FixedUpdate, player_collision);
         app.add_systems(Update, flashing);
-
     }
 }
 
@@ -86,7 +85,9 @@ fn projectiles_collision(
                     strength: KNOCKBACK_STRENGTH,
                 });
                 commands.entity(projectile_entity).despawn_recursive();
-                commands.entity(enemy_children[1]).insert(FlashingTimer { time_left: FLASH_DURATION, });
+                commands.entity(enemy_children[1]).insert(FlashingTimer {
+                    time_left: FLASH_DURATION,
+                });
             }
         }
     }
@@ -95,7 +96,10 @@ fn shield_collision(
     mut commands: Commands,
     q_player: Query<&Transform, With<Player>>,
     q_shield: Query<(&GlobalTransform, &Shield), With<Shield>>,
-    mut q_enemy: Query<(&Transform, &mut EnemyHealth, Entity, &Children), (With<Enemy>, Without<Shield>, Without<FlashingTimer>)>,
+    mut q_enemy: Query<
+        (&Transform, &mut EnemyHealth, Entity, &Children),
+        (With<Enemy>, Without<Shield>, Without<FlashingTimer>),
+    >,
 ) {
     let player_tf = q_player.single();
     for (shield_tf, shield) in q_shield.iter() {
@@ -106,7 +110,9 @@ fn shield_collision(
             if dist < 16.0 {
                 enemy_health.health -= shield.damage as i32;
                 let knockback_direction = (pos2 - player_tf.translation.truncate()).normalize();
-                commands.entity(enemy_children[1]).insert(FlashingTimer { time_left: FLASH_DURATION, });
+                commands.entity(enemy_children[1]).insert(FlashingTimer {
+                    time_left: FLASH_DURATION,
+                });
                 commands.entity(enemy_entity).insert(Knockback {
                     direction: knockback_direction,
                     strength: KNOCKBACK_STRENGTH,
@@ -162,25 +168,25 @@ fn player_collision(
     }
 }
 
-
-
 #[derive(Component)]
-struct FlashingTimer { time_left: f32 }
+struct FlashingTimer {
+    time_left: f32,
+}
 
-fn flashing (
-    mut commands: Commands, 
-    mut flashing_query: Query<(&mut FlashingTimer, Entity, &mut Sprite)>, 
-    time: Res<Time>, 
+fn flashing(
+    mut commands: Commands,
+    mut flashing_query: Query<(&mut FlashingTimer, Entity, &mut Sprite)>,
+    time: Res<Time>,
 ) {
-    for (mut timer, timer_e, mut timer_sprite) in flashing_query.iter_mut() { 
+    for (mut timer, timer_e, mut timer_sprite) in flashing_query.iter_mut() {
         print!("asd\n");
-        timer_sprite.color = Color::srgba(12., 12., 12., 1.); // bright white color 
-        
+        timer_sprite.color = Color::srgba(12., 12., 12., 1.); // bright white color
+
         timer.time_left -= time.delta_secs();
-        
+
         if timer.time_left <= 0.0 {
             timer_sprite.color = Color::srgba(1.0, 1.0, 1.0, 1.0); // resets the color back to normal
             commands.entity(timer_e).remove::<FlashingTimer>(); // removes the FlashingTimer component from the entity
         }
-} }
-
+    }
+}
