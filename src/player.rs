@@ -4,6 +4,7 @@ use bevy::input::keyboard::KeyCode;
 use bevy::input::mouse::MouseButton;
 use bevy::prelude::*;
 use bevy::window::PrimaryWindow;
+use bevy_hanabi::prelude::*;
 
 pub struct PlayerPlugin;
 
@@ -61,6 +62,7 @@ fn spawn_player(
     mut commands: Commands,
     asset_server: Res<AssetServer>,
     mut texture_atlas_layouts: ResMut<Assets<TextureAtlasLayout>>,
+    mut effects: ResMut<Assets<EffectAsset>>,
 ) {
     let texture = asset_server.load("elf.png");
     let layout = TextureAtlasLayout::from_grid(UVec2::splat(48), 3, 1, None, None);
@@ -122,6 +124,77 @@ fn spawn_player(
 
     commands.entity(player).add_child(snowball_sprite);
     commands.entity(snowball_sprite).add_child(snowmball_shadow);
+
+
+
+
+
+    let mut gradient = Gradient::new();
+    gradient.add_key(0.0, Vec3::splat(0.6).extend(1.0));
+    gradient.add_key(1.0, Vec3::splat(0.6).extend(1.0));
+  
+    // Create a new expression module
+    let mut module = Module::default();
+  
+    // On spawn, randomly initialize the position of the particle
+    // to be over the surface of a sphere of radius 2 units.
+    let init_pos = SetPositionSphereModifier {
+        center: module.lit(Vec3::ZERO),
+        radius: module.lit(5.),
+        dimension: ShapeDimension::Surface,
+    };
+  
+    // Also initialize a radial initial velocity to 6 units/sec
+    // away from the (same) sphere center.
+    // let init_vel = SetVelocitySphereModifier {
+    //     center: module.lit(Vec3::ZERO),
+    //     speed: module.lit(6.),
+    // };
+  
+    // Initialize the total lifetime of the particle, that is
+    // the time for which it's simulated and rendered. This modifier
+    // is almost always required, otherwise the particles won't show.
+    let lifetime = module.lit(10.); // literal value "10.0"
+    let init_lifetime = SetAttributeModifier::new(
+        Attribute::LIFETIME, lifetime);
+  
+    // Every frame, add a gravity-like acceleration downward
+    //let accel = module.lit(Vec3::new(0., -3., 0.));
+    //let update_accel = AccelModifier::new(accel);
+  
+    // Create the effect asset
+    let effect = EffectAsset::new(
+      // Maximum number of particles alive at a time
+      32768,
+      // Spawn at a rate of 5 particles per second
+      Spawner::rate(100.0.into()),
+      // Move the expression module into the asset
+      module
+    )
+    .with_name("MyEffect")
+    .init(init_pos)
+    //.init(init_vel)
+    .init(init_lifetime)
+    //.update(update_accel)
+    // Render the particles with a color gradient over their
+    // lifetime. This maps the gradient key 0 to the particle spawn
+    // time, and the gradient key 1 to the particle death (10s).
+    .render(ColorOverLifetimeModifier { gradient })
+    .render(SetSizeModifier { size: Vec3::splat(8.).into() });
+  
+    // Insert into the asset system
+    let effect_handle = effects.add(effect);
+
+    let snowball_particle = commands.spawn((
+        Name::new("firework"),
+        ParticleEffectBundle {
+            effect: ParticleEffect::new(effect_handle).with_z_layer_2d(Some(-100.)),
+            transform: Transform::from_xyz(0.0, -6., -100.0),
+            ..Default::default()
+        },
+    )).id();
+
+    commands.entity(snowmball_shadow).add_child(snowball_particle);
 }
 
 fn player_movement(

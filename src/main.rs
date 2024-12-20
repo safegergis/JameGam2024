@@ -13,6 +13,7 @@ use enemy::EnemyPlugin;
 use player::PlayerPlugin;
 use background::BackgroundPlugin;
 use ui::UiPlugin;
+use bevy_hanabi::prelude::*;
 
 fn main() {
     App::new()
@@ -22,5 +23,6 @@ fn main() {
         .add_plugins(CollisionPlugin)
         .add_plugins(BackgroundPlugin)
         .add_plugins(UiPlugin)
+        .add_plugins(HanabiPlugin)
         .run();
 }
