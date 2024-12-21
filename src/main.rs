@@ -15,6 +15,7 @@ use enemy::EnemyPlugin;
 use mainmenu::MainMenuPlugin;
 use player::PlayerPlugin;
 use ui::UiPlugin;
+use bevy_hanabi::prelude::*;
 
 #[derive(Debug, Clone, Copy, Eq, PartialEq, Hash, States)]
 pub enum GameState {
@@ -48,5 +49,6 @@ fn main() {
         .add_plugins(UiPlugin {
             state: AppState::InGame,
         })
+        .add_plugins(HanabiPlugin)
         .run();
 }
