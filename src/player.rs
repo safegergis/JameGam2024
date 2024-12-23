@@ -11,9 +11,9 @@ pub struct PlayerPlugin<S: States> {
 
 impl<S: States> Plugin for PlayerPlugin<S> {
     fn build(&self, app: &mut App) {
-        app.add_systems(OnEnter(self.state.clone()), spawn_player);
+        app.add_systems(Startup, spawn_player);
         app.add_systems(
-            PostStartup,
+            OnEnter(self.state.clone()),
             spawn_shield.run_if(in_state(self.state.clone())),
         );
         app.add_systems(
@@ -95,7 +95,7 @@ fn spawn_player(
             AnimationTimer(Timer::from_seconds(0.1, TimerMode::Repeating)),
             Transform::from_xyz(0.0, 0.0, 0.0),
             YSort { z: 32.0 },
-            ShieldCircle { number: 3 },
+            ShieldCircle { number: 7 },
             PlayerXp { xp: 0 },
             PlayerHealth { hp: 10.0 },
         ))

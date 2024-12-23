@@ -12,7 +12,7 @@ pub struct EnemyPlugin<S: States> {
 
 impl<S: States> Plugin for EnemyPlugin<S> {
     fn build(&self, app: &mut App) {
-        app.insert_resource(EnemyTimer(Timer::from_seconds(0.1, TimerMode::Repeating)));
+        app.insert_resource(EnemyTimer(Timer::from_seconds(0.05, TimerMode::Repeating)));
         app.add_systems(
             Update,
             (chase_player, spawn_enemy, wiggle, y_sort, kill_dead_enemies)
