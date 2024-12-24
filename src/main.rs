@@ -1,3 +1,4 @@
+mod audio;
 mod background;
 mod camera;
 mod collision;
@@ -8,6 +9,7 @@ mod player;
 mod ui;
 mod utils;
 
+use audio::AudioPlugin;
 use background::BackgroundPlugin;
 use bevy::prelude::*;
 use bevy_hanabi::prelude::*;
@@ -30,14 +32,26 @@ pub enum AppState {
     MainMenu,
     InGame,
     GameOver,
+    Settings,
+}
+
+#[derive(Resource)]
+pub struct Volume {
+    pub music: f32,
+    pub sfx: f32,
 }
 
 fn main() {
     App::new()
+        .insert_resource(Volume {
+            music: 1.0,
+            sfx: 1.0,
+        })
         .add_plugins(CameraPlugin)
         .add_plugins(BackgroundPlugin)
         .insert_state(AppState::MainMenu)
         .insert_state(GameState::Playing)
+        .add_plugins(AudioPlugin)
         .add_plugins(MainMenuPlugin {
             state: AppState::MainMenu,
         })

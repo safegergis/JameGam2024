@@ -399,7 +399,7 @@ fn upgrade_player(
     mut game_state: ResMut<NextState<GameState>>,
 ) {
     let player_xp = q_player.single();
-    if player_xp.xp >= 20 {
+    if player_xp.xp >= 1000 {
         game_state.set(GameState::Upgrade);
     }
 }

@@ -1,5 +1,6 @@
 use crate::AppState;
 use crate::GameState;
+use crate::Volume;
 use bevy::input::keyboard::KeyCode;
 use bevy::prelude::*;
 use bevy_egui::{egui, EguiContexts, EguiPlugin};
@@ -25,12 +26,17 @@ pub struct MainMenuPlugin<S: States> {
 impl<S: States> Plugin for MainMenuPlugin<S> {
     fn build(&self, app: &mut App) {
         app.add_plugins(EguiPlugin);
+        app.insert_resource(Volume {
+            music: 1.0,
+            sfx: 1.0,
+        });
         app.add_systems(Startup, load_fonts);
         app.add_systems(Update, setup_main_menu.run_if(in_state(self.state.clone())));
         app.add_systems(Update, setup_game_over.run_if(in_state(AppState::GameOver)));
         app.add_systems(Update, setup_pause_menu.run_if(in_state(GameState::Paused)));
         app.add_systems(Update, listen_pause.run_if(in_state(AppState::InGame)));
         app.add_systems(Update, upgrade_screen.run_if(in_state(GameState::Upgrade)));
+        app.add_systems(Update, setup_settings.run_if(in_state(AppState::Settings)));
     }
 }
 fn load_fonts(mut context: EguiContexts) {
@@ -57,7 +63,7 @@ fn setup_main_menu(
     mut game_state: ResMut<NextState<GameState>>,
 ) {
     egui::CentralPanel::default()
-        .frame(egui::Frame::none().fill(egui::Color32::from_rgba_premultiplied(240, 240, 255, 0)))
+        .frame(egui::Frame::none().fill(egui::Color32::from_rgba_premultiplied(0, 0, 0, 250)))
         .show(contexts.ctx_mut(), |ui| {
             ui.vertical_centered(|ui| {
                 ui.add_space(100.0);
@@ -85,6 +91,18 @@ fn setup_main_menu(
                     app_state.set(AppState::InGame);
                     game_state.set(GameState::Playing);
                 }
+                let settings_button = egui::Button::new(
+                    egui::RichText::new("Settings")
+                        .size(32.0)
+                        .color(egui::Color32::from_rgb(240, 240, 255)),
+                );
+                if ui
+                    .add_sized([220.0, 60.0], settings_button)
+                    .on_hover_text("Settings")
+                    .clicked()
+                {
+                    app_state.set(AppState::Settings);
+                }
 
                 ui.add_space(30.0);
 
@@ -100,6 +118,69 @@ fn setup_main_menu(
                     .clicked()
                 {
                     std::process::exit(0);
+                }
+            });
+        });
+}
+fn setup_settings(
+    mut contexts: EguiContexts,
+    mut app_state: ResMut<NextState<AppState>>,
+    mut volume: ResMut<Volume>,
+) {
+    egui::CentralPanel::default()
+        .frame(egui::Frame::none().fill(egui::Color32::from_rgba_premultiplied(0, 0, 0, 250)))
+        .show(contexts.ctx_mut(), |ui| {
+            ui.vertical_centered_justified(|ui| {
+                // Settings title
+                let title = egui::RichText::new("Settings")
+                    .size(48.0)
+                    .color(egui::Color32::from_rgb(100, 150, 200))
+                    .strong();
+                ui.add(egui::Label::new(title));
+
+                ui.add_space(40.0);
+
+                // Music Volume Slider
+                ui.horizontal(|ui| {
+                    ui.label(
+                        egui::RichText::new("Music Volume")
+                            .size(24.0)
+                            .color(egui::Color32::WHITE),
+                    );
+                    ui.add(egui::Slider::new(&mut volume.music, 0.0..=1.0).text(""));
+                });
+
+                ui.add_space(20.0);
+
+                // SFX Volume Slider
+                ui.horizontal(|ui| {
+                    ui.label(
+                        egui::RichText::new("SFX Volume")
+                            .size(24.0)
+                            .color(egui::Color32::WHITE),
+                    );
+                    ui.add(egui::Slider::new(&mut volume.sfx, 0.0..=1.0).text(""));
+                });
+
+                ui.add_space(60.0);
+
+                // Back button with enhanced styling
+                if ui
+                    .add_sized(
+                        [220.0, 60.0],
+                        egui::Button::new(
+                            egui::RichText::new("Back")
+                                .size(32.0)
+                                .color(egui::Color32::from_rgb(240, 240, 255))
+                                .strong(),
+                        )
+                        .fill(egui::Color32::from_rgb(80, 80, 160))
+                        .stroke(egui::Stroke::new(2.0, egui::Color32::WHITE)),
+                    )
+                    .on_hover_text("Return to main menu")
+                    .clicked()
+                {
+                    app_state.set(AppState::MainMenu);
                 }
             });
         });
