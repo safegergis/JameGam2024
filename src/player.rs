@@ -8,12 +8,27 @@ use bevy::prelude::*;
 use bevy::window::PrimaryWindow;
 use bevy_hanabi::prelude::*;
 
+#[derive(Resource)]
+struct PlayerStats {
+    rate_of_fire: f32,
+    acceleration_rate: f32,
+
+    projectile_speed: f32,
+    projectile_piercing: i32,
+}
 pub struct PlayerPlugin<S: States> {
     pub state: S,
 }
 
 impl<S: States> Plugin for PlayerPlugin<S> {
     fn build(&self, app: &mut App) {
+        app.insert_resource(PlayerStats {
+            rate_of_fire: 0.4,
+            acceleration_rate: 500.0,
+
+            projectile_speed: 550.0,
+            projectile_piercing: 1,
+        });
         app.add_systems(Startup, spawn_player);
         app.add_systems(
             OnEnter(self.state.clone()),
@@ -30,6 +45,7 @@ impl<S: States> Plugin for PlayerPlugin<S> {
                 scale_snowball_to_health,
                 kill_player,
                 powerup_player,
+                delay_fire,
             )
                 .run_if(in_state(self.state.clone())),
         );
@@ -44,7 +60,6 @@ const LERP_FACTOR: f32 = 4.0;
 #[derive(Component)]
 pub struct Player {
     pub velocity: Vec2,
-    pub acceleration_rate: f32,
     max_velocity: f32,
 }
 #[derive(Component)]
@@ -75,6 +90,10 @@ pub struct PlayerSnowball;
 pub struct PoweredUp {
     pub timer: Timer,
 }
+#[derive(Component)]
+pub struct FireTimer {
+    pub timer: Timer,
+}
 
 fn spawn_player(
     mut commands: Commands,
@@ -91,7 +110,6 @@ fn spawn_player(
         .spawn((
             Player {
                 velocity: Vec2::ZERO,
-                acceleration_rate: 500.0,
                 max_velocity: 100.0,
             },
             Sprite::from_atlas_image(
@@ -218,6 +236,7 @@ fn spawn_player(
 fn player_movement(
     time: Res<Time>,
     mut query: Query<(&mut Transform, &mut Player)>,
+    stats: Res<PlayerStats>,
     keys: Res<ButtonInput<KeyCode>>,
 ) {
     let Ok((mut transform, mut player)) = query.get_single_mut() else {
@@ -227,16 +246,16 @@ fn player_movement(
     // Calculate acceleration based on input
     let mut acceleration_vector = Vec2::ZERO;
     if keys.pressed(KeyCode::KeyW) {
-        acceleration_vector.y += player.acceleration_rate;
+        acceleration_vector.y += stats.acceleration_rate;
     }
     if keys.pressed(KeyCode::KeyS) {
-        acceleration_vector.y -= player.acceleration_rate;
+        acceleration_vector.y -= stats.acceleration_rate;
     }
     if keys.pressed(KeyCode::KeyA) {
-        acceleration_vector.x -= player.acceleration_rate;
+        acceleration_vector.x -= stats.acceleration_rate;
     }
     if keys.pressed(KeyCode::KeyD) {
-        acceleration_vector.x += player.acceleration_rate;
+        acceleration_vector.x += stats.acceleration_rate;
     }
 
     // Apply acceleration to velocity
@@ -281,34 +300,44 @@ fn fire_projectile(
     q_window: Query<&Window, With<PrimaryWindow>>,
     q_camera: Query<(&Camera, &GlobalTransform), With<OuterCamera>>,
     q_incamera: Query<&GlobalTransform, With<InGameCamera>>,
-    q_player: Query<&Transform, With<Player>>,
+    q_player: Query<(&Transform, Entity, Option<&FireTimer>), With<Player>>,
     mut commands: Commands,
     asset_server: Res<AssetServer>,
     mouse_button: Res<ButtonInput<MouseButton>>,
+    stats: Res<PlayerStats>,
 ) {
     let (camera, camera_transform) = q_camera.single();
     let camera_in_transform = q_incamera.single();
     let window = q_window.single();
-
     if let Some(world_position) = window
         .cursor_position()
         .and_then(|cursor| camera.viewport_to_world_2d(camera_transform, cursor).ok())
     {
         let new_world_position = world_position + camera_in_transform.translation().truncate();
-        let player_transform = q_player.single();
+        let (player_transform, player_entity, fire_timer) = q_player.single();
         let player_position = player_transform.translation.truncate();
         let projectile_direction = (new_world_position - player_position).normalize();
-        if mouse_button.just_pressed(MouseButton::Left) {
+
+        if let Some(fire_timer) = fire_timer
+        {
+            return;
+        }
+
+        if  mouse_button.pressed(MouseButton::Left) {
             commands.spawn((
                 Projectile {
-                    velocity: 550.0,
+                    velocity: stats.projectile_speed,
                     direction: projectile_direction,
-                    pierce_amount: 0,
+                    pierce_amount: stats.projectile_piercing,
                 },
                 Transform::from_translation(player_position.extend(0.0)),
                 Sprite::from_image(asset_server.load("candycane_shuriken.png")),
                 Rotate { speed: -30.0 },
             ));
+
+            commands.entity(player_entity).insert(FireTimer {
+                timer: Timer::from_seconds(stats.rate_of_fire, TimerMode::Once),
+            });
         }
     }
 }
@@ -383,6 +412,21 @@ fn kill_player(mut commands: Commands, q_player: Query<(Entity, &PlayerHealth), 
         commands.set_state(AppState::GameOver);
     }
 }
+
+fn delay_fire(
+    mut commands: Commands,
+    mut q: Query<(Entity, &mut FireTimer)>,
+    time: Res<Time>,
+) {
+    for (entity, mut fire_timer) in q.iter_mut() {
+        fire_timer.timer.tick(time.delta());
+
+        if fire_timer.timer.finished() {
+            commands.entity(entity).remove::<FireTimer>();
+        }
+    }
+}
+
 #[derive(Component)]
 struct AnimationIndices {
     first: usize,

@@ -15,8 +15,8 @@ use crate::player::Shield;
 
 use bevy::prelude::*;
 
-const IFRAME_DURATION: f32 = 0.1;
-const FLASH_DURATION: f32 = 0.1;
+const IFRAME_DURATION: f32 = 0.05;
+const FLASH_DURATION: f32 = 0.05;
 const KNOCKBACK_STRENGTH: f32 = 4.0;
 const FRICTION: f32 = 0.5;
 
