@@ -12,7 +12,7 @@ pub struct EnemyPlugin<S: States> {
 
 impl<S: States> Plugin for EnemyPlugin<S> {
     fn build(&self, app: &mut App) {
-        app.insert_resource(EnemyTimer(Timer::from_seconds(0.1, TimerMode::Repeating)));
+        app.insert_resource(EnemyTimer(Timer::from_seconds(0.05, TimerMode::Repeating)));
         app.add_systems(
             Update,
             (chase_player, spawn_enemy, wiggle, y_sort, kill_dead_enemies)
@@ -129,7 +129,7 @@ fn kill_dead_enemies(
     asset_server: Res<AssetServer>,
 ) {
     let mut player_health = q_player.single_mut();
-    let mut snowball_transform = q_snowball.single_mut();
+    let snowball_transform = q_snowball.single_mut();
     for (health, transform, entity) in enemy_q.iter() {
         if health.health <= 0 {
             commands.entity(entity).despawn_recursive();

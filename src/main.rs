@@ -3,6 +3,7 @@ mod camera;
 mod collision;
 mod enemy;
 mod mainmenu;
+mod pickup;
 mod player;
 mod ui;
 mod utils;
@@ -13,6 +14,7 @@ use camera::CameraPlugin;
 use collision::CollisionPlugin;
 use enemy::EnemyPlugin;
 use mainmenu::MainMenuPlugin;
+use pickup::PickupPlugin;
 use player::PlayerPlugin;
 use ui::UiPlugin;
 use bevy_hanabi::prelude::*;
@@ -43,6 +45,9 @@ fn main() {
             state: AppState::InGame,
         })
         .add_plugins(CollisionPlugin {
+            state: AppState::InGame,
+        })
+        .add_plugins(PickupPlugin {
             state: AppState::InGame,
         })
         .add_plugins(BackgroundPlugin)

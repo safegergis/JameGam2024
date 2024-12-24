@@ -8,9 +8,28 @@ pub struct MainMenuPlugin<S: States> {
 impl<S: States> Plugin for MainMenuPlugin<S> {
     fn build(&self, app: &mut App) {
         app.add_plugins(EguiPlugin);
+        app.add_systems(Startup, load_fonts);
         app.add_systems(Update, setup_main_menu.run_if(in_state(self.state.clone())));
         app.add_systems(Update, setup_game_over.run_if(in_state(AppState::GameOver)));
     }
+}
+fn load_fonts(mut context: EguiContexts) {
+    let mut fonts = egui::FontDefinitions::default();
+    fonts.font_data.insert(
+        "slkscr".to_owned(),
+        egui::FontData::from_static(include_bytes!("../assets/fonts/slkscr.ttf")),
+    );
+    fonts
+        .families
+        .get_mut(&egui::FontFamily::Proportional)
+        .unwrap()
+        .insert(0, "slkscr".to_owned());
+    fonts
+        .families
+        .get_mut(&egui::FontFamily::Monospace)
+        .unwrap()
+        .insert(0, "slkscr".to_owned());
+    context.ctx_mut().set_fonts(fonts);
 }
 fn setup_main_menu(mut contexts: EguiContexts, mut app_state: ResMut<NextState<AppState>>) {
     egui::CentralPanel::default()

@@ -1,4 +1,5 @@
 use crate::camera::{InGameCamera, OuterCamera, Rotate};
+use crate::collision::Blink;
 use crate::utils::YSort;
 use crate::AppState;
 use bevy::input::keyboard::KeyCode;
@@ -13,9 +14,9 @@ pub struct PlayerPlugin<S: States> {
 
 impl<S: States> Plugin for PlayerPlugin<S> {
     fn build(&self, app: &mut App) {
-        app.add_systems(OnEnter(self.state.clone()), spawn_player);
+        app.add_systems(Startup, spawn_player);
         app.add_systems(
-            PostStartup,
+            OnEnter(self.state.clone()),
             spawn_shield.run_if(in_state(self.state.clone())),
         );
         app.add_systems(
@@ -28,6 +29,7 @@ impl<S: States> Plugin for PlayerPlugin<S> {
                 camera_follow,
                 scale_snowball_to_health,
                 kill_player,
+                powerup_player,
             )
                 .run_if(in_state(self.state.clone())),
         );
@@ -68,6 +70,10 @@ pub struct PlayerHealth {
 }
 #[derive(Component)]
 pub struct PlayerSnowball;
+#[derive(Component)]
+pub struct PoweredUp {
+    pub timer: Timer,
+}
 
 fn spawn_player(
     mut commands: Commands,
@@ -98,7 +104,7 @@ fn spawn_player(
             AnimationTimer(Timer::from_seconds(0.1, TimerMode::Repeating)),
             Transform::from_xyz(0.0, 0.0, 0.0),
             YSort { z: 32.0 },
-            ShieldCircle { number: 3 },
+            ShieldCircle { number: 7 },
             PlayerXp { xp: 0 },
             PlayerHealth { hp: 10.0 },
         ))
@@ -304,6 +310,29 @@ fn fire_projectile(
         }
     }
 }
+
+fn powerup_player(
+    mut commands: Commands,
+    mut q_player: Query<(Entity, &mut Sprite, &mut PoweredUp, &mut Blink), With<PoweredUp>>,
+    time: Res<Time>,
+) {
+    let Ok((player_entity, mut sprite, mut poweredup, mut blink)) = q_player.get_single_mut()
+    else {
+        return;
+    };
+    poweredup.timer.tick(time.delta());
+    if poweredup.timer.just_finished() {
+        println!("Powerup expired");
+        commands.entity(player_entity).remove::<PoweredUp>();
+        commands.entity(player_entity).remove::<Blink>();
+        sprite.color = Color::srgba(1., 1., 1., 1.);
+    } else {
+        let remaining_ratio =
+            poweredup.timer.elapsed_secs() / poweredup.timer.duration().as_secs_f32();
+        let blink_speed = 1.0 - remaining_ratio;
+        blink.speed = blink_speed;
+    }
+}
 const SHIELD_OFFSET: f32 = 50.0;
 fn spawn_shield(
     mut commands: Commands,
@@ -344,10 +373,6 @@ fn scale_snowball_to_health(
         player_snowball_tf.scale = Vec3::new(player_health.hp / 10.0, player_health.hp / 10.0, 1.0);
         player.max_velocity = player_health.hp * 10.0;
     }
-    println!(
-        "Player health: {}, max velocity: {}",
-        player_health.hp, player.max_velocity
-    );
 }
 fn kill_player(mut commands: Commands, q_player: Query<(Entity, &PlayerHealth), With<Player>>) {
     let (player_entity, player_health) = q_player.single();

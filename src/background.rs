@@ -43,7 +43,7 @@ fn move_background(
     let mut entities_to_reassign = Vec::new();
 
     // Identify occupied positions and entities to reassign
-    for (mut transform, _background) in q.iter_mut() {
+    for (transform, _background) in q.iter_mut() {
         // Use mut Transform here
         let grid_x = (transform.translation.x / w).round() as i32;
         let grid_y = (transform.translation.y / h).round() as i32;
@@ -67,7 +67,7 @@ fn move_background(
 
     for mut transform in entities_to_reassign {
         if let Some(new_pos) = available_positions.pop() {
-            println!("PlayerPositon coords: {}/{}", new_pos.0, new_pos.1);
+            //println!("PlayerPositon coords: {}/{}", new_pos.0, new_pos.1);
             transform.translation = Vec3::new(
                 new_pos.0 as f32 * w,
                 new_pos.1 as f32 * h,
