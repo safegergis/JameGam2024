@@ -1,9 +1,18 @@
+use bevy_egui::egui::Resize;
+use rand::Rng;
 use std::time::Duration;
 
+use crate::enemy::Vunerable;
 use crate::enemy::Enemy;
 use crate::enemy::EnemyHealth;
 use crate::enemy::EnemyXp;
+use crate::enemy::Frozen;
+use crate::enemy::OnFire;
 use crate::pickup::Pickup;
+use crate::player::AnimationIndices;
+use crate::player::AnimationTimer;
+use crate::player::PlayerStats;
+use crate::utils::YSort;
 
 use crate::player::Player;
 use crate::player::PlayerHealth;
@@ -15,8 +24,8 @@ use crate::player::Shield;
 
 use bevy::prelude::*;
 
-const IFRAME_DURATION: f32 = 0.1;
-const FLASH_DURATION: f32 = 0.1;
+const IFRAME_DURATION: f32 = 0.05;
+const FLASH_DURATION: f32 = 0.05;
 const KNOCKBACK_STRENGTH: f32 = 4.0;
 const FRICTION: f32 = 0.5;
 
@@ -30,12 +39,18 @@ struct Knockback {
     strength: f32,
 }
 
+#[derive(Component)]
+struct CheckIfFreeze;
+#[derive(Component)]
+struct CheckIfFire;
+
 impl<S: States> Plugin for CollisionPlugin<S> {
     fn build(&self, app: &mut App) {
         app.add_systems(
             FixedUpdate,
             (
-                projectiles_collision,
+                (projectiles_collision,
+                    fire_check, freeze_check).chain(),
                 enemy_collision,
                 knockback_system,
                 shield_collision,
@@ -45,7 +60,16 @@ impl<S: States> Plugin for CollisionPlugin<S> {
             )
                 .run_if(in_state(self.state.clone())),
         );
-        app.add_systems(Update, (blinking, flashing, invincible).run_if(in_state(self.state.clone())));
+        app.add_systems(
+            Update,
+            (
+                blinking,
+                flashing,
+                invincible,
+                destroy_after,
+            )
+                .run_if(in_state(self.state.clone())),
+        );
         app.add_systems(OnExit(self.state.clone()), cleanup_xp);
     }
 }
@@ -84,16 +108,25 @@ fn xp_collision(
 }
 fn projectiles_collision(
     mut commands: Commands,
-    mut projectiles_q: Query<(Entity, &Transform, &mut Projectile), (Without<Enemy>)>,
-    mut enemies_q: Query<(&mut EnemyHealth, &Transform, Entity, &Children), (With<Enemy>, Without<InvincibleTimer>)>,
+    mut projectiles_q: Query<(Entity, &Transform, &mut Projectile, Option<&Vunerable>), (Without<Enemy>)>,
+    mut enemies_q: Query<
+        (&mut EnemyHealth, &Transform, Entity, &Children),
+        (With<Enemy>, Without<InvincibleTimer>),
+    >,
+    stats: Res<PlayerStats>,
 ) {
-    for (projectile_entity, projectile_tf, mut projectile) in projectiles_q.iter_mut() {
+    for (projectile_entity, projectile_tf, mut projectile, vunerable) in projectiles_q.iter_mut() {
         for (mut health, enemy_tf, enemy_entity, enemy_children) in enemies_q.iter_mut() {
             let pos1 = projectile_tf.translation.truncate();
             let pos2 = enemy_tf.translation.truncate();
             let dist = pos1.distance(pos2);
             if dist < 16.0 {
-                health.health -= 34;
+                let mut multiplier: f32 = 1.0;
+                if let Some(_vunerable) = vunerable
+                {
+                    multiplier = _vunerable.multiplier;
+                }
+                health.health -= stats.damage * multiplier;
                 //println!("enemy destroyed");
                 // Apply knockback to enemy
                 let knockback_direction = (pos2 - pos1).normalize();
@@ -102,17 +135,30 @@ fn projectiles_collision(
                     strength: KNOCKBACK_STRENGTH,
                 });
 
-                if projectile.pierce_amount > 0
-                {
+                if projectile.pierce_amount > 0 {
                     projectile.pierce_amount = projectile.pierce_amount - 1;
-                }else {               
+                } else {
                     commands.entity(projectile_entity).despawn_recursive();
                 }
-                
-                commands.entity(enemy_children[1]).insert(FlashingTimer { 
-                    time_left: FLASH_DURATION, 
-                    color: Color::srgba(12., 12., 12., 1.),});
-                commands.entity(enemy_entity).insert(InvincibleTimer { time_left: IFRAME_DURATION, });
+
+                commands.entity(enemy_children[1]).insert(FlashingTimer {
+                    time_left: FLASH_DURATION,
+                    color: Color::srgba(12., 12., 12., 1.),
+                });
+
+                commands.entity(enemy_entity).insert(InvincibleTimer {
+                    time_left: IFRAME_DURATION,
+                });
+
+                let random_freeze_chance = rand::thread_rng().gen_range(1..100);
+                if stats.freeze_chance >= random_freeze_chance {
+                    commands.entity(enemy_entity).insert(CheckIfFreeze);
+                }
+
+                let random_burn_chance = rand::thread_rng().gen_range(1..100);
+                if stats.fire_chance >= random_burn_chance {
+                    commands.entity(enemy_entity).insert(CheckIfFire);
+                }
             }
         }
     }
@@ -133,13 +179,15 @@ fn shield_collision(
             let pos2 = enemy_tf.translation.truncate();
             let dist = pos1.distance(pos2);
             if dist < 16.0 {
-                enemy_health.health -= shield.damage as i32;
+                enemy_health.health -= shield.damage;
                 let knockback_direction = (pos2 - player_tf.translation.truncate()).normalize();
-                commands.entity(enemy_children[1]).insert(FlashingTimer { 
-                    time_left: FLASH_DURATION, 
+                commands.entity(enemy_children[1]).insert(FlashingTimer {
+                    time_left: FLASH_DURATION,
                     color: Color::srgba(12., 12., 12., 1.),
                 });
-                commands.entity(enemy_entity).insert(InvincibleTimer { time_left: IFRAME_DURATION, });
+                commands.entity(enemy_entity).insert(InvincibleTimer {
+                    time_left: IFRAME_DURATION,
+                });
                 commands.entity(enemy_entity).insert(Knockback {
                     direction: knockback_direction,
                     strength: KNOCKBACK_STRENGTH,
@@ -192,7 +240,15 @@ fn pickup_colliisions(
 }
 fn player_collision(
     mut commands: Commands,
-    mut q_player: Query<(&mut PlayerHealth, Entity, &mut Player, Option<&InvincibleTimer>), Without<PlayerSnowball>>,
+    mut q_player: Query<
+        (
+            &mut PlayerHealth,
+            Entity,
+            &mut Player,
+            Option<&InvincibleTimer>,
+        ),
+        Without<PlayerSnowball>,
+    >,
     mut q_player_snowball: Query<&mut GlobalTransform, With<PlayerSnowball>>,
     q_player_poweredup: Query<Entity, (With<PoweredUp>, Without<PlayerSnowball>)>,
     mut q_enemy: Query<(&Transform, &mut EnemyHealth, Entity), With<Enemy>>,
@@ -208,27 +264,28 @@ fn player_collision(
         if !player_poweredup {
             if dist < collision_radius {
                 let collision_direction = (pos2 - pos1).normalize();
-                if let Some(iframes) = iframes{
+                if let Some(iframes) = iframes {
+                } else {
+                    player_health.hp -= 3.0;
+                    player.velocity = player.velocity * 0.5;
 
-            }else {
-                player_health.hp -= 3.0;
-                player.velocity = player.velocity * 0.5;
-
-                commands.entity(player_entity).insert(FlashingTimer { 
-                    time_left: FLASH_DURATION, 
-                    color: Color::srgba(12., 12., 12., 1.),
+                    commands.entity(player_entity).insert(FlashingTimer {
+                        time_left: FLASH_DURATION,
+                        color: Color::srgba(12., 12., 12., 1.),
+                    });
+                    commands.entity(player_entity).insert(InvincibleTimer {
+                        time_left: IFRAME_DURATION,
+                    });
+                }
+                commands.entity(enemy_entity).insert(Knockback {
+                    direction: collision_direction,
+                    strength: KNOCKBACK_STRENGTH,
                 });
-                commands.entity(player_entity).insert(InvincibleTimer { time_left: IFRAME_DURATION, });
-            }
-            commands.entity(enemy_entity).insert(Knockback {
-                direction: collision_direction,
-                strength: KNOCKBACK_STRENGTH,
-            });
             }
         } else {
             if dist < collision_radius {
                 let collision_direction = (pos2 - pos1).normalize();
-                enemy_health.health -= 25;
+                enemy_health.health -= 25.;
                 commands.entity(enemy_entity).insert(Knockback {
                     direction: collision_direction,
                     strength: KNOCKBACK_STRENGTH,
@@ -239,9 +296,9 @@ fn player_collision(
 }
 
 #[derive(Component)]
-struct FlashingTimer {
-    time_left: f32,
-    color: Color,
+pub struct FlashingTimer {
+    pub time_left: f32,
+    pub color: Color,
 }
 
 #[derive(Component)]
@@ -269,6 +326,11 @@ fn flashing(
 pub struct Blink {
     pub color: Color,
     pub speed: f32,
+}
+
+#[derive(Component)]
+pub struct DestroyAfter {
+    pub duration: f32,
 }
 
 fn blinking(mut blinking_query: Query<(&Blink, &mut Sprite)>, time: Res<Time>) {
@@ -300,5 +362,164 @@ fn invincible(
 fn cleanup_xp(mut commands: Commands, xp_q: Query<Entity, With<EnemyXp>>) {
     for entity in xp_q.iter() {
         commands.entity(entity).despawn_recursive();
+    }
+}
+
+fn destroy_after(
+    mut commands: Commands,
+    mut q: Query<(&mut DestroyAfter, Entity)>,
+    time: Res<Time>,
+) {
+    for (mut destroy_after, destroy_entity) in q.iter_mut() {
+        let dt = time.delta_secs();
+        destroy_after.duration -= dt;
+        if (destroy_after.duration <= 0.0) {
+            commands.entity(destroy_entity).despawn_recursive();
+        }
+    }
+}
+
+fn freeze_check(
+    mut commands: Commands,
+    mut q_entity: Query<(&CheckIfFreeze, &mut EnemyHealth, Entity, &Children, Option<&Frozen>, Option<&OnFire>, Option<&CheckIfFire>)>,
+    fire_query: Query<(&OnFire, Entity, Option<&DestroyAfter>)>,
+    stats: Res<PlayerStats>,
+    asset_server: Res<AssetServer>,
+) {
+    for (_check_freeze, mut enemy_health, enemy_entity, enemy_children, frozen, on_fire, fire_check) in q_entity.iter_mut() {
+        if let Some(frozen) = frozen {
+            commands.entity(enemy_entity).remove::<CheckIfFreeze>();
+        } else {
+
+            // Check if on fire
+            if let Some(_on_fire) = on_fire
+            {
+                if let Some(_fire_check) = fire_check
+                {
+                    commands.entity(enemy_entity).remove::<CheckIfFire>();
+                }
+
+                if(stats.flash_freeze)
+                {
+                    enemy_health.health -= enemy_health.health * 0.15;
+                }
+
+                commands.entity(enemy_entity).remove::<OnFire>();
+            commands.entity(enemy_children[1]).remove::<Blink>();
+            commands.entity(enemy_children[1]).insert(FlashingTimer {
+                time_left: 0.0,
+                color: Color::srgba(1., 1., 1., 1.),
+            });
+                for (_child, child_entity, to_destroy) in fire_query.iter_many(enemy_children) {
+                    commands.entity(child_entity).remove::<OnFire>();
+
+                    if let Some(_to_destroy) = to_destroy
+                    {
+                        commands.entity(child_entity).despawn_recursive();
+                    }
+                }
+            }
+            ////////////////////////////////////////////////
+
+
+
+            commands.entity(enemy_entity).insert(Frozen {
+                duration: stats.freeze_duration,
+            });
+            commands.entity(enemy_children[1]).insert(Frozen {
+                duration: stats.freeze_duration,
+            });
+
+            let freeze_sprite = commands
+                .spawn((
+                    Sprite::from_image(asset_server.load("Freeze.png")),
+                    YSort { z: 0.6 },
+                    Frozen{ duration: stats.freeze_duration},
+                    DestroyAfter {
+                        duration: stats.freeze_duration,
+                    },
+                ))
+                .id();
+
+            commands.entity(enemy_entity).add_child(freeze_sprite);
+        }
+            
+        }
+    }
+
+fn fire_check(
+    mut commands: Commands,
+    mut q_entity: Query<(&CheckIfFire, Entity, &Children, Option<&OnFire>, Option<&Frozen>, Option<&CheckIfFreeze>)>,
+    frozen_query: Query<(&Frozen, Entity, Option<&DestroyAfter>)>,
+    stats: Res<PlayerStats>,
+    asset_server: Res<AssetServer>,
+    mut texture_atlas_layouts: ResMut<Assets<TextureAtlasLayout>>,
+) {
+    for (_check_fire, enemy_entity, enemy_children, on_fire, frozen, freeze_check) in q_entity.iter_mut() {
+        if let Some(on_fire) = on_fire {
+            commands.entity(enemy_entity).remove::<CheckIfFire>();
+        } else {
+
+            //Check if frozen
+            if let Some(_frozen) = frozen
+            {
+                for (_child, child_entity, to_destroy) in frozen_query.iter_many(enemy_children) {
+                    commands.entity(child_entity).remove::<Frozen>();
+                    
+                    if let Some(_to_destroy) = to_destroy
+                    {
+                        commands.entity(child_entity).despawn_recursive();
+                    }
+                }
+
+                commands.entity(enemy_entity).remove::<Frozen>();
+                if let Some(_freeze_check) = freeze_check
+                {
+                    commands.entity(enemy_entity).remove::<CheckIfFreeze>();
+                }
+
+                if(stats.freezer_burn)
+                {
+                    commands.entity(enemy_entity).insert(Vunerable {
+                        duration: stats.freezer_burn_duration,
+                        multiplier: stats.freezer_burn_multiplier,
+                    });
+                }
+            }
+            //////////////////////////////////////////////
+
+            commands.entity(enemy_entity).insert(OnFire {
+                duration: stats.fire_duration,
+            });
+            commands.entity(enemy_children[1]).insert(Blink {
+                color: Color::srgba(12., 12., 12., 1.),
+                speed: 10.0,
+            });
+
+            let texture = asset_server.load("fire.png");
+            let layout = TextureAtlasLayout::from_grid(UVec2::splat(36), 2, 1, None, None);
+    let texture_atlas_layout = texture_atlas_layouts.add(layout);
+    let animation_indices = AnimationIndices { first: 0, last: 1 };
+            let fire_sprite = commands
+                .spawn((
+                    YSort { z: 0.6 },
+                    OnFire{duration: stats.fire_duration},
+                    DestroyAfter {
+                        duration: stats.fire_duration,
+                    },
+                    Sprite::from_atlas_image(
+                        texture,
+                        TextureAtlas {
+                            layout: texture_atlas_layout,
+                            index: animation_indices.first,
+                        },
+                    ),
+                    animation_indices,
+                    AnimationTimer(Timer::from_seconds(0.1, TimerMode::Repeating)),
+                ))
+                .id();
+
+            commands.entity(enemy_entity).add_child(fire_sprite);
+        }
     }
 }
