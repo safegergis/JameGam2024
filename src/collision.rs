@@ -1,18 +1,17 @@
-
-use bevy_egui::egui::Resize;
-use rand::Rng;
-use std::time::Duration;
-use crate::enemy::Vunerable;
 use crate::enemy::Enemy;
 use crate::enemy::EnemyHealth;
 use crate::enemy::EnemyXp;
 use crate::enemy::Frozen;
 use crate::enemy::OnFire;
+use crate::enemy::Vunerable;
 use crate::pickup::Pickup;
 use crate::player::AnimationIndices;
 use crate::player::AnimationTimer;
 use crate::player::PlayerStats;
 use crate::utils::YSort;
+use bevy_egui::egui::Resize;
+use rand::Rng;
+use std::time::Duration;
 
 use crate::player::Player;
 use crate::player::PlayerHealth;
@@ -50,8 +49,7 @@ impl<S: States> Plugin for CollisionPlugin<S> {
         app.add_systems(
             FixedUpdate,
             (
-                (projectiles_collision,
-                    fire_check, freeze_check).chain(),
+                (projectiles_collision, fire_check, freeze_check).chain(),
                 enemy_collision,
                 knockback_system,
                 shield_collision,
@@ -64,14 +62,9 @@ impl<S: States> Plugin for CollisionPlugin<S> {
         );
         app.add_systems(
             Update,
-            (
-                blinking,
-                flashing,
-                invincible,
-                destroy_after,
-            )
-                .run_if(in_state(self.state.clone())
-                .run_if(in_state(GameState::Playing))),
+            (blinking, flashing, invincible, destroy_after)
+                .run_if(in_state(self.state.clone()))
+                .run_if(in_state(GameState::Playing)),
         );
         app.add_systems(OnExit(self.state.clone()), cleanup_xp);
     }
@@ -111,13 +104,16 @@ fn xp_collision(
 }
 fn projectiles_collision(
     mut commands: Commands,
-    mut projectiles_q: Query<(Entity, &Transform, &mut Projectile, Option<&Vunerable>), (Without<Enemy>)>,
+    mut projectiles_q: Query<
+        (Entity, &Transform, &mut Projectile, Option<&Vunerable>),
+        (Without<Enemy>),
+    >,
     mut enemies_q: Query<
         (&mut EnemyHealth, &Transform, Entity, &Children),
         (With<Enemy>, Without<InvincibleTimer>),
     >,
-  asset_server: Res<AssetServer>,
-  stats: Res<PlayerStats>,
+    asset_server: Res<AssetServer>,
+    stats: Res<PlayerStats>,
 ) {
     for (projectile_entity, projectile_tf, mut projectile, vunerable) in projectiles_q.iter_mut() {
         for (mut health, enemy_tf, enemy_entity, enemy_children) in enemies_q.iter_mut() {
@@ -126,8 +122,7 @@ fn projectiles_collision(
             let dist = pos1.distance(pos2);
             if dist < 16.0 {
                 let mut multiplier: f32 = 1.0;
-                if let Some(_vunerable) = vunerable
-                {
+                if let Some(_vunerable) = vunerable {
                     multiplier = _vunerable.multiplier;
                 }
                 health.health -= stats.damage * multiplier;
@@ -415,47 +410,57 @@ fn destroy_after(
 
 fn freeze_check(
     mut commands: Commands,
-    mut q_entity: Query<(&CheckIfFreeze, &mut EnemyHealth, Entity, &Children, Option<&Frozen>, Option<&OnFire>, Option<&CheckIfFire>)>,
+    mut q_entity: Query<(
+        &CheckIfFreeze,
+        &mut EnemyHealth,
+        Entity,
+        &Children,
+        Option<&Frozen>,
+        Option<&OnFire>,
+        Option<&CheckIfFire>,
+    )>,
     fire_query: Query<(&OnFire, Entity, Option<&DestroyAfter>)>,
     stats: Res<PlayerStats>,
     asset_server: Res<AssetServer>,
 ) {
-    for (_check_freeze, mut enemy_health, enemy_entity, enemy_children, frozen, on_fire, fire_check) in q_entity.iter_mut() {
+    for (
+        _check_freeze,
+        mut enemy_health,
+        enemy_entity,
+        enemy_children,
+        frozen,
+        on_fire,
+        fire_check,
+    ) in q_entity.iter_mut()
+    {
         if let Some(frozen) = frozen {
             commands.entity(enemy_entity).remove::<CheckIfFreeze>();
         } else {
-
             // Check if on fire
-            if let Some(_on_fire) = on_fire
-            {
-                if let Some(_fire_check) = fire_check
-                {
+            if let Some(_on_fire) = on_fire {
+                if let Some(_fire_check) = fire_check {
                     commands.entity(enemy_entity).remove::<CheckIfFire>();
                 }
 
-                if(stats.flash_freeze)
-                {
+                if (stats.flash_freeze) {
                     enemy_health.health -= enemy_health.health * 0.15;
                 }
 
                 commands.entity(enemy_entity).remove::<OnFire>();
-            commands.entity(enemy_children[1]).remove::<Blink>();
-            commands.entity(enemy_children[1]).insert(FlashingTimer {
-                time_left: 0.0,
-                color: Color::srgba(1., 1., 1., 1.),
-            });
+                commands.entity(enemy_children[1]).remove::<Blink>();
+                commands.entity(enemy_children[1]).insert(FlashingTimer {
+                    time_left: 0.0,
+                    color: Color::srgba(1., 1., 1., 1.),
+                });
                 for (_child, child_entity, to_destroy) in fire_query.iter_many(enemy_children) {
                     commands.entity(child_entity).remove::<OnFire>();
 
-                    if let Some(_to_destroy) = to_destroy
-                    {
+                    if let Some(_to_destroy) = to_destroy {
                         commands.entity(child_entity).despawn_recursive();
                     }
                 }
             }
             ////////////////////////////////////////////////
-
-
 
             commands.entity(enemy_entity).insert(Frozen {
                 duration: stats.freeze_duration,
@@ -468,7 +473,9 @@ fn freeze_check(
                 .spawn((
                     Sprite::from_image(asset_server.load("Freeze.png")),
                     YSort { z: 0.6 },
-                    Frozen{ duration: stats.freeze_duration},
+                    Frozen {
+                        duration: stats.freeze_duration,
+                    },
                     DestroyAfter {
                         duration: stats.freeze_duration,
                     },
@@ -477,43 +484,46 @@ fn freeze_check(
 
             commands.entity(enemy_entity).add_child(freeze_sprite);
         }
-            
-        }
     }
+}
 
 fn fire_check(
     mut commands: Commands,
-    mut q_entity: Query<(&CheckIfFire, Entity, &Children, Option<&OnFire>, Option<&Frozen>, Option<&CheckIfFreeze>)>,
+    mut q_entity: Query<(
+        &CheckIfFire,
+        Entity,
+        &Children,
+        Option<&OnFire>,
+        Option<&Frozen>,
+        Option<&CheckIfFreeze>,
+    )>,
     frozen_query: Query<(&Frozen, Entity, Option<&DestroyAfter>)>,
     stats: Res<PlayerStats>,
     asset_server: Res<AssetServer>,
     mut texture_atlas_layouts: ResMut<Assets<TextureAtlasLayout>>,
 ) {
-    for (_check_fire, enemy_entity, enemy_children, on_fire, frozen, freeze_check) in q_entity.iter_mut() {
+    for (_check_fire, enemy_entity, enemy_children, on_fire, frozen, freeze_check) in
+        q_entity.iter_mut()
+    {
         if let Some(on_fire) = on_fire {
             commands.entity(enemy_entity).remove::<CheckIfFire>();
         } else {
-
             //Check if frozen
-            if let Some(_frozen) = frozen
-            {
+            if let Some(_frozen) = frozen {
                 for (_child, child_entity, to_destroy) in frozen_query.iter_many(enemy_children) {
                     commands.entity(child_entity).remove::<Frozen>();
-                    
-                    if let Some(_to_destroy) = to_destroy
-                    {
+
+                    if let Some(_to_destroy) = to_destroy {
                         commands.entity(child_entity).despawn_recursive();
                     }
                 }
 
                 commands.entity(enemy_entity).remove::<Frozen>();
-                if let Some(_freeze_check) = freeze_check
-                {
+                if let Some(_freeze_check) = freeze_check {
                     commands.entity(enemy_entity).remove::<CheckIfFreeze>();
                 }
 
-                if(stats.freezer_burn)
-                {
+                if (stats.freezer_burn) {
                     commands.entity(enemy_entity).insert(Vunerable {
                         duration: stats.freezer_burn_duration,
                         multiplier: stats.freezer_burn_multiplier,
@@ -532,12 +542,14 @@ fn fire_check(
 
             let texture = asset_server.load("fire.png");
             let layout = TextureAtlasLayout::from_grid(UVec2::splat(36), 2, 1, None, None);
-    let texture_atlas_layout = texture_atlas_layouts.add(layout);
-    let animation_indices = AnimationIndices { first: 0, last: 1 };
+            let texture_atlas_layout = texture_atlas_layouts.add(layout);
+            let animation_indices = AnimationIndices { first: 0, last: 1 };
             let fire_sprite = commands
                 .spawn((
                     YSort { z: 0.6 },
-                    OnFire{duration: stats.fire_duration},
+                    OnFire {
+                        duration: stats.fire_duration,
+                    },
                     DestroyAfter {
                         duration: stats.fire_duration,
                     },
