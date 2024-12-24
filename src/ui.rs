@@ -1,4 +1,5 @@
 use crate::player::PlayerXp;
+use crate::GameState;
 use bevy::prelude::*;
 use bevy::ui::widget::NodeImageMode;
 
@@ -10,7 +11,9 @@ impl<S: States> Plugin for UiPlugin<S> {
         app.add_systems(OnEnter(self.state.clone()), setup_ui);
         app.add_systems(
             FixedUpdate,
-            update_xp_bar.run_if(in_state(self.state.clone())),
+            update_xp_bar
+                .run_if(in_state(self.state.clone()))
+                .run_if(in_state(GameState::Playing)),
         );
         app.add_systems(OnExit(self.state.clone()), despawn_ui);
     }

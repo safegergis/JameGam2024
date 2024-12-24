@@ -1,6 +1,8 @@
 use crate::AppState;
+use crate::GameState;
 use bevy::prelude::*;
 use bevy_egui::{egui, EguiContexts, EguiPlugin};
+
 pub struct MainMenuPlugin<S: States> {
     pub state: S,
 }
@@ -31,7 +33,11 @@ fn load_fonts(mut context: EguiContexts) {
         .insert(0, "slkscr".to_owned());
     context.ctx_mut().set_fonts(fonts);
 }
-fn setup_main_menu(mut contexts: EguiContexts, mut app_state: ResMut<NextState<AppState>>) {
+fn setup_main_menu(
+    mut contexts: EguiContexts,
+    mut app_state: ResMut<NextState<AppState>>,
+    mut game_state: ResMut<NextState<GameState>>,
+) {
     egui::CentralPanel::default()
         .frame(egui::Frame::none().fill(egui::Color32::from_rgba_premultiplied(240, 240, 255, 0)))
         .show(contexts.ctx_mut(), |ui| {
@@ -58,7 +64,8 @@ fn setup_main_menu(mut contexts: EguiContexts, mut app_state: ResMut<NextState<A
                     .on_hover_text("Start your adventure!")
                     .clicked()
                 {
-                    app_state.set(AppState::InGame)
+                    app_state.set(AppState::InGame);
+                    game_state.set(GameState::Playing);
                 }
 
                 ui.add_space(30.0);
@@ -79,7 +86,11 @@ fn setup_main_menu(mut contexts: EguiContexts, mut app_state: ResMut<NextState<A
             });
         });
 }
-fn setup_game_over(mut contexts: EguiContexts, mut app_state: ResMut<NextState<AppState>>) {
+fn setup_game_over(
+    mut contexts: EguiContexts,
+    mut app_state: ResMut<NextState<AppState>>,
+    mut game_state: ResMut<NextState<GameState>>,
+) {
     egui::CentralPanel::default()
         .frame(egui::Frame::none().fill(egui::Color32::from_rgba_premultiplied(240, 240, 255, 0)))
         .show(contexts.ctx_mut(), |ui| {
@@ -106,7 +117,8 @@ fn setup_game_over(mut contexts: EguiContexts, mut app_state: ResMut<NextState<A
                     .on_hover_text("Try again!")
                     .clicked()
                 {
-                    app_state.set(AppState::InGame)
+                    app_state.set(AppState::InGame);
+                    game_state.set(GameState::Playing);
                 }
 
                 ui.add_space(30.0);

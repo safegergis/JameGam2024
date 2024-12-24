@@ -3,6 +3,7 @@ use crate::player::Player;
 use crate::player::PlayerHealth;
 use crate::player::PlayerSnowball;
 use crate::utils::YSort;
+use crate::GameState;
 
 use bevy::prelude::*;
 use rand::Rng;
@@ -16,7 +17,8 @@ impl<S: States> Plugin for EnemyPlugin<S> {
         app.add_systems(
             Update,
             (chase_player, spawn_enemy, wiggle, y_sort, kill_dead_enemies)
-                .run_if(in_state(self.state.clone())),
+                .run_if(in_state(self.state.clone()))
+                .run_if(in_state(GameState::Playing)),
         );
         app.add_systems(OnExit(self.state.clone()), clean_up_enemies);
     }
@@ -125,11 +127,11 @@ fn kill_dead_enemies(
     mut commands: Commands,
     enemy_q: Query<(&EnemyHealth, &Transform, Entity), (With<Enemy>, Without<EnemyXp>)>,
     mut q_player: Query<&mut PlayerHealth, With<Player>>,
-    mut q_snowball: Query<&mut Transform, (With<PlayerSnowball>, Without<Enemy>)>,
     asset_server: Res<AssetServer>,
 ) {
-    let mut player_health = q_player.single_mut();
-    let snowball_transform = q_snowball.single_mut();
+    let Ok(mut player_health) = q_player.get_single_mut() else {
+        return;
+    };
     for (health, transform, entity) in enemy_q.iter() {
         if health.health <= 0 {
             commands.entity(entity).despawn_recursive();
@@ -149,7 +151,9 @@ fn chase_player(
     q_player: Query<(&GlobalTransform, &Player)>,
     mut q: Query<(&mut Transform, &ChasePlayer)>,
 ) {
-    let (player, _player_transform) = q_player.single();
+    let Ok((player, _player_transform)) = q_player.get_single() else {
+        return;
+    };
     //println!("PlayerPositon coords: {}/{}", player.translation().x, player.translation().y)
     for (mut tf, chase_player) in q.iter_mut() {
         let dt = time.delta_secs() * chase_player.speed as f32;
