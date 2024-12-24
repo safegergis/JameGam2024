@@ -9,7 +9,8 @@ use crate::player::Projectile;
 use crate::player::Shield;
 use bevy::prelude::*;
 
-const FLASH_DURATION: f32 = 0.05;
+const IFRAME_DURATION: f32 = 0.1;
+const FLASH_DURATION: f32 = 0.1;
 const KNOCKBACK_STRENGTH: f32 = 4.0;
 const FRICTION: f32 = 0.5;
 
@@ -26,6 +27,14 @@ struct Knockback {
 impl<S: States> Plugin for CollisionPlugin<S> {
     fn build(&self, app: &mut App) {
         app.add_systems(
+            Update,
+            (
+                flashing,
+                invincible,
+            )
+                .run_if(in_state(self.state.clone())),
+        );
+        app.add_systems(
             FixedUpdate,
             (
                 projectiles_collision,
@@ -34,7 +43,6 @@ impl<S: States> Plugin for CollisionPlugin<S> {
                 shield_collision,
                 player_collision,
                 xp_collision,
-                flashing,
             )
                 .run_if(in_state(self.state.clone())),
         );
@@ -76,10 +84,10 @@ fn xp_collision(
 }
 fn projectiles_collision(
     mut commands: Commands,
-    projectiles_q: Query<(Entity, &Transform), (With<Projectile>, Without<Enemy>)>,
-    mut enemies_q: Query<(&mut EnemyHealth, &Transform, Entity, &Children), With<Enemy>>,
+    mut projectiles_q: Query<(Entity, &Transform, &mut Projectile), (Without<Enemy>)>,
+    mut enemies_q: Query<(&mut EnemyHealth, &Transform, Entity, &Children), (With<Enemy>, Without<InvincibleTimer>)>,
 ) {
-    for (projectile_entity, projectile_tf) in projectiles_q.iter() {
+    for (projectile_entity, projectile_tf, mut projectile) in projectiles_q.iter_mut() {
         for (mut health, enemy_tf, enemy_entity, enemy_children) in enemies_q.iter_mut() {
             let pos1 = projectile_tf.translation.truncate();
             let pos2 = enemy_tf.translation.truncate();
@@ -93,10 +101,16 @@ fn projectiles_collision(
                     direction: knockback_direction,
                     strength: KNOCKBACK_STRENGTH,
                 });
-                commands.entity(projectile_entity).despawn_recursive();
-                commands.entity(enemy_children[1]).insert(FlashingTimer {
-                    time_left: FLASH_DURATION,
-                });
+
+                if projectile.pierce_amount > 0
+                {
+                    projectile.pierce_amount = projectile.pierce_amount - 1;
+                }else {               
+                    commands.entity(projectile_entity).despawn_recursive();
+                }
+                
+                commands.entity(enemy_children[1]).insert(FlashingTimer { time_left: FLASH_DURATION, });
+                commands.entity(enemy_entity).insert(InvincibleTimer { time_left: IFRAME_DURATION, });
             }
         }
     }
@@ -107,7 +121,7 @@ fn shield_collision(
     q_shield: Query<(&GlobalTransform, &Shield), With<Shield>>,
     mut q_enemy: Query<
         (&Transform, &mut EnemyHealth, Entity, &Children),
-        (With<Enemy>, Without<Shield>, Without<FlashingTimer>),
+        (With<Enemy>, Without<Shield>, Without<InvincibleTimer>),
     >,
 ) {
     let player_tf = q_player.single();
@@ -119,9 +133,8 @@ fn shield_collision(
             if dist < 16.0 {
                 enemy_health.health -= shield.damage as i32;
                 let knockback_direction = (pos2 - player_tf.translation.truncate()).normalize();
-                commands.entity(enemy_children[1]).insert(FlashingTimer {
-                    time_left: FLASH_DURATION,
-                });
+                commands.entity(enemy_children[1]).insert(FlashingTimer { time_left: FLASH_DURATION, });
+                commands.entity(enemy_entity).insert(InvincibleTimer { time_left: IFRAME_DURATION, });
                 commands.entity(enemy_entity).insert(Knockback {
                     direction: knockback_direction,
                     strength: KNOCKBACK_STRENGTH,
@@ -153,11 +166,11 @@ fn enemy_collision(mut q: Query<&mut Transform, With<Enemy>>) {
 
 fn player_collision(
     mut commands: Commands,
-    mut q_player: Query<(&mut PlayerHealth, Entity, &mut Player), Without<PlayerSnowball>>,
+    mut q_player: Query<(&mut PlayerHealth, Entity, &mut Player, Option<&InvincibleTimer>), Without<PlayerSnowball>>,
     mut q_player_snowball: Query<&mut GlobalTransform, With<PlayerSnowball>>,
     q_enemy: Query<(&Transform, Entity), With<Enemy>>,
 ) {
-    let (mut player_health, player_entity, mut player) = q_player.single_mut();
+    let (mut player_health, player_entity, mut player, iframes) = q_player.single_mut();
     let player_snowball_tf = q_player_snowball.single_mut();
     for (enemy_tf, enemy_entity) in q_enemy.iter() {
         let pos1 = player_snowball_tf.translation().truncate();
@@ -167,8 +180,16 @@ fn player_collision(
 
         if dist < collision_radius {
             let collision_direction = (pos2 - pos1).normalize();
-            player_health.hp -= 3.0;
-            player.velocity = player.velocity * 0.5;
+
+            if let Some(iframes) = iframes{
+
+            }else {
+                player_health.hp -= 3.0;
+                player.velocity = player.velocity * 0.5;
+
+                commands.entity(player_entity).insert(FlashingTimer { time_left: FLASH_DURATION, });
+                commands.entity(player_entity).insert(InvincibleTimer { time_left: IFRAME_DURATION, });
+            }
             commands.entity(enemy_entity).insert(Knockback {
                 direction: collision_direction,
                 strength: KNOCKBACK_STRENGTH,
@@ -182,13 +203,17 @@ struct FlashingTimer {
     time_left: f32,
 }
 
+#[derive(Component)]
+struct InvincibleTimer {
+    time_left: f32,
+}
+
 fn flashing(
     mut commands: Commands,
     mut flashing_query: Query<(&mut FlashingTimer, Entity, &mut Sprite)>,
     time: Res<Time>,
 ) {
     for (mut timer, timer_e, mut timer_sprite) in flashing_query.iter_mut() {
-        print!("asd\n");
         timer_sprite.color = Color::srgba(12., 12., 12., 1.); // bright white color
 
         timer.time_left -= time.delta_secs();
@@ -199,6 +224,20 @@ fn flashing(
         }
     }
 }
+
+fn invincible(
+    mut commands: Commands,
+    mut invincible_query: Query<(&mut InvincibleTimer, Entity)>,
+    time: Res<Time>,
+) {
+    for (mut timer, timer_e) in invincible_query.iter_mut() {
+        timer.time_left -= time.delta_secs();
+        if timer.time_left <= 0.0 {
+            commands.entity(timer_e).remove::<InvincibleTimer>(); // removes the FlashingTimer component from the entity
+        }
+    }
+}
+
 fn cleanup_xp(mut commands: Commands, xp_q: Query<Entity, With<EnemyXp>>) {
     for entity in xp_q.iter() {
         commands.entity(entity).despawn_recursive();
