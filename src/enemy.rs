@@ -5,12 +5,15 @@ use crate::player::PlayerHealth;
 
 use crate::GameState;
 
+use crate::player::AnimationIndices;
+use crate::player::AnimationTimer;
 use crate::player::PlayerStats;
 use crate::utils::YSort;
 use crate::collision::FlashingTimer;
 
 
 use bevy::prelude::*;
+use bevy_egui::egui::debug_text::print;
 use rand::Rng;
 pub struct EnemyPlugin<S: States> {
     pub state: S,
@@ -18,7 +21,23 @@ pub struct EnemyPlugin<S: States> {
 
 impl<S: States> Plugin for EnemyPlugin<S> {
     fn build(&self, app: &mut App) {
-        app.insert_resource(EnemyTimer(Timer::from_seconds(0.05, TimerMode::Repeating)));
+        app.insert_resource(
+            EnemyTimer{
+              spawn_time: 1.,
+              wave_time: 3.,
+              next_enemy_reached: false,
+              next_enemy_time: 300.,
+              default_time: 1.,
+              agressive_time: 0.1,  
+            },
+        );
+        app.insert_resource(
+            EnemyCount{
+                enemy_count: 0,
+                max_enemies: 100,
+                min_enemies: 0,
+            },
+        );
         app.add_systems(
             Update,
 
@@ -31,7 +50,23 @@ impl<S: States> Plugin for EnemyPlugin<S> {
 }
 
 #[derive(Resource)]
-struct EnemyTimer(Timer);
+struct EnemyTimer{
+    spawn_time: f32,
+    wave_time: f32,
+    next_enemy_time: f32,
+    next_enemy_reached: bool,
+
+    default_time: f32,
+    agressive_time: f32,
+}
+
+#[derive(Resource)]
+pub struct EnemyCount{
+    pub enemy_count: i32,
+    pub max_enemies: i32,
+    pub min_enemies: i32,
+}
+
 #[derive(Component)]
 pub struct Vunerable {
     pub multiplier: f32,
@@ -64,14 +99,49 @@ fn spawn_enemy(
     mut timer: ResMut<EnemyTimer>,
     mut commands: Commands,
     asset_server: Res<AssetServer>,
+    mut enemy_count: ResMut<EnemyCount>,
+    mut texture_atlas_layouts: ResMut<Assets<TextureAtlasLayout>>,
 ) {
-    if timer.0.tick(time.delta()).just_finished() {
+    if !timer.next_enemy_reached { timer.next_enemy_time -= time.delta_secs(); }
+
+    if(timer.next_enemy_time < 0.) {
+        timer.next_enemy_reached = true;
+        timer.next_enemy_time = 500.;
+        enemy_count.min_enemies = 0;
+    }
+    
+    timer.wave_time -= time.delta_secs();
+    if(timer.wave_time <= 0.)
+    {
+        enemy_count.min_enemies += 1;
+        enemy_count.max_enemies += 1;
+        if(timer.next_enemy_reached){
+            timer.wave_time = 2.;
+        }
+        else {
+               timer.wave_time = 3.; 
+        }
+    }
+
+    println!("{}", enemy_count.enemy_count);
+    timer.spawn_time -= time.delta_secs();
+    if timer.spawn_time <= 0. && enemy_count.enemy_count < enemy_count.max_enemies {
+        if enemy_count.enemy_count > enemy_count.min_enemies {
+            timer.spawn_time = timer.default_time;
+        }else {
+            timer.spawn_time = timer.agressive_time;
+        }
+
+        enemy_count.enemy_count += 1;
+
         let circle = Circle::new(350.0);
         let boundary_pt = circle.sample_boundary(&mut rand::thread_rng());
         let (_camera, camera_transform) = q_camera.single();
 
         let num_offset = rand::thread_rng().gen_range(-1.0..1.0);
-        let snowman_holder = commands
+        if(!timer.next_enemy_reached)
+        {
+            let snowman_holder = commands
             .spawn((
                 Visibility::Visible,
                 Transform::from_xyz(
@@ -82,7 +152,7 @@ fn spawn_enemy(
                 YSort { z: 32.0 },
                 Enemy,
                 ChasePlayer { speed: 25.0 },
-                EnemyHealth { health: 1000. },
+                EnemyHealth { health: 100. },
             ))
             .id();
 
@@ -115,6 +185,66 @@ fn spawn_enemy(
             .id();
         commands.entity(snowman_holder).add_child(snowman_shadow);
         commands.entity(snowman_holder).add_child(snowman_sprite);
+        }else {
+            let texture = asset_server.load("BuffSnowman.png");
+            let layout = TextureAtlasLayout::from_grid(UVec2::splat(48), 4, 1, None, None);
+            let texture_atlas_layout = texture_atlas_layouts.add(layout);
+            // Use only the subset of sprites in the sheet that make up the run animation
+            let animation_indices = AnimationIndices { first: 0, last: 3 };
+
+            let snowman_holder = commands
+            .spawn((
+                Visibility::Visible,
+                Transform::from_xyz(
+                    boundary_pt.x + camera_transform.translation().x,
+                    boundary_pt.y + camera_transform.translation().y,
+                    2.0,
+                ),
+                YSort { z: 32.0 },
+                Enemy,
+                ChasePlayer { speed: 25.0 },
+                EnemyHealth { health: 100. },
+            ))
+            .id();
+
+        let snowman_sprite = commands
+            .spawn((
+                Sprite::from_atlas_image(
+                    texture,
+                    TextureAtlas {
+                        layout: texture_atlas_layout,
+                        index: animation_indices.first,
+                    },
+                ),
+                animation_indices,
+                AnimationTimer(Timer::from_seconds(0.1, TimerMode::Repeating)),
+                Wiggle {
+                    rotate_speed: 18.0,
+                    rotate_amount: 0.0125,
+                    scale_speed: 18.0,
+                    scale_amount: 0.125,
+                    offset: num_offset,
+                },
+            ))
+            .id();
+
+        let snowman_shadow = commands
+            .spawn((
+                Transform::from_xyz(0.0, -18.0, 0.0),
+                Sprite::from_image(asset_server.load("Shadow.png")),
+                YSort { z: -100.0 },
+                Wiggle {
+                    rotate_speed: 0.0,
+                    rotate_amount: 0.0,
+                    scale_speed: 18.0,
+                    scale_amount: 0.085,
+                    offset: num_offset,
+                },
+            ))
+            .id();
+        commands.entity(snowman_holder).add_child(snowman_shadow);
+        commands.entity(snowman_holder).add_child(snowman_sprite);
+        }
     }
 }
 
@@ -147,6 +277,7 @@ fn kill_dead_enemies(
     enemy_q: Query<(&EnemyHealth, &Transform, Entity), (With<Enemy>, Without<EnemyXp>)>,
     mut q_player: Query<&mut PlayerHealth, With<Player>>,
     asset_server: Res<AssetServer>,
+    mut enemy_count: ResMut<EnemyCount>,
 ) {
     let Ok(mut player_health) = q_player.get_single_mut() else {
         return;
@@ -158,6 +289,7 @@ fn kill_dead_enemies(
                 asset_server.load("sounds/snowman_death.ogg"),
             ));
             commands.entity(entity).despawn_recursive();
+            enemy_count.enemy_count -= 1;
             commands.spawn((
                 EnemyXp { xp: 10 },
                 Sprite::from_image(asset_server.load("xp.png")),

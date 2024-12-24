@@ -10,6 +10,17 @@ use bevy::{
     }, window::WindowResized
 };
 
+#[derive(Resource)]
+pub struct Resolution{
+    pub width: u32,
+    pub height: u32,
+    pub base_width: u32,
+    pub base_height: u32,
+}
+
+#[derive(Resource)]
+struct CanvasHandle(Handle<Image>);
+
 /// In-game resolution width.
 pub const RES_WIDTH: u32 = 480;
 
@@ -27,9 +38,15 @@ pub struct CameraPlugin;
 
 impl Plugin for CameraPlugin {
     fn build(&self, app: &mut App) {
+        app.insert_resource(Resolution{
+            width: RES_WIDTH,
+            height: RES_HEIGHT,
+            base_width: RES_WIDTH,
+            base_height: RES_HEIGHT,
+        });
         app.add_plugins(DefaultPlugins.set(ImagePlugin::default_nearest()));
         app.add_systems(Startup, setup_camera);
-        app.add_systems(Update, (rotate, fit_canvas));
+        app.add_systems(Update, (rotate, (update_canvas_size, fit_canvas).chain()));
     }
 }
 
@@ -60,6 +77,32 @@ pub struct Rotate {
     pub speed: f32,
 }
 
+fn update_canvas_size(
+    mut images: ResMut<Assets<Image>>,
+    resolution: Res<Resolution>,
+    canvas_handle: Res<CanvasHandle>,
+) {
+    if let Some(canvas) = images.get_mut(&canvas_handle.0) {
+        // New canvas size
+        let new_width = resolution.width;
+        let new_height = resolution.height;
+
+        // Update the Extent3d size
+        let new_size = Extent3d {
+            width: new_width,
+            height: new_height,
+            ..canvas.texture_descriptor.size
+        };
+        
+        // Update the texture descriptor and resize the buffer
+        canvas.texture_descriptor.size = new_size;
+        canvas.resize(new_size);
+
+        // // The canvas size has now been updated
+        // info!("Canvas size updated to {}x{}", new_width, new_height);
+    }
+}
+
 fn setup_camera(mut commands: Commands, mut images: ResMut<Assets<Image>>) {
     let canvas_size = Extent3d {
         width: RES_WIDTH,
@@ -88,6 +131,8 @@ fn setup_camera(mut commands: Commands, mut images: ResMut<Assets<Image>>) {
     canvas.resize(canvas_size);
 
     let image_handle = images.add(canvas);
+
+    commands.insert_resource(CanvasHandle(image_handle.clone()));
 
     // this camera renders whatever is on `PIXEL_PERFECT_LAYERS` to the canvas
     commands.spawn((
@@ -124,10 +169,11 @@ fn rotate(time: Res<Time>, mut rotates: Query<(&mut Transform, &Rotate), With<Ro
 fn fit_canvas(
     mut resize_events: EventReader<WindowResized>,
     mut projection: Single<&mut OrthographicProjection, With<OuterCamera>>,
+    resolution: Res<Resolution>
 ) {
     for event in resize_events.read() {
-        let h_scale = event.width / RES_WIDTH as f32;
-        let v_scale = event.height / RES_HEIGHT as f32;
+        let h_scale = event.width / resolution.width as f32;
+        let v_scale = event.height / resolution.height as f32;
         projection.scale = 1. / h_scale.min(v_scale).round();
     }
 }
