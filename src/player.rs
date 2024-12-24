@@ -1,4 +1,4 @@
-use crate::camera::{InGameCamera, OuterCamera, Rotate};
+use crate::camera::{InGameCamera, OuterCamera, Resolution, Rotate};
 use crate::collision::Blink;
 use crate::utils::YSort;
 use crate::AppState;
@@ -158,7 +158,7 @@ fn spawn_player(
     player_stats: Res<PlayerStats>,
 ) {
     let texture = asset_server.load("elf.png");
-    let layout = TextureAtlasLayout::from_grid(UVec2::splat(48), 3, 1, None, None);
+    let layout = TextureAtlasLayout::from_grid(UVec2::splat(48), 4, 1, None, None);
     let texture_atlas_layout = texture_atlas_layouts.add(layout);
     // Use only the subset of sprites in the sheet that make up the run animation
     let animation_indices = AnimationIndices { first: 0, last: 2 };
@@ -434,6 +434,7 @@ fn shield_movement(mut shield_query: Query<&mut Transform, (With<Shield>, Withou
 fn scale_snowball_to_health(
     mut q_player: Query<(&PlayerHealth, &mut Player)>,
     mut q_player_snowball: Query<&mut Transform, With<PlayerSnowball>>,
+    mut resolution: ResMut<Resolution>
 ) {
     let (player_health, mut player) = q_player.single_mut();
     let mut player_snowball_tf = q_player_snowball.single_mut();
@@ -441,6 +442,10 @@ fn scale_snowball_to_health(
         player_snowball_tf.scale = Vec3::new(player_health.hp / 10.0, player_health.hp / 10.0, 1.0);
         player.max_velocity = player_health.hp * 10.0;
     }
+
+    let scale_modifer = (player_snowball_tf.scale.x / 1.5).clamp(1.0, 3.0);
+    resolution.width = (scale_modifer * resolution.base_width as f32).round() as u32;
+    resolution.height = (scale_modifer * resolution.base_height as f32).round() as u32;
 }
 fn kill_player(mut commands: Commands, q_player: Query<(Entity, &PlayerHealth), With<Player>>) {
     let (player_entity, player_health) = q_player.single();

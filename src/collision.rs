@@ -1,4 +1,5 @@
 use crate::enemy::Enemy;
+use crate::enemy::EnemyCount;
 use crate::enemy::EnemyHealth;
 use crate::enemy::EnemyXp;
 use crate::enemy::Frozen;
@@ -283,21 +284,38 @@ fn player_collision(
     >,
     mut q_player_snowball: Query<&mut GlobalTransform, With<PlayerSnowball>>,
     q_player_poweredup: Query<Entity, (With<PoweredUp>, Without<PlayerSnowball>)>,
-    mut q_enemy: Query<(&Transform, &mut EnemyHealth, Entity), With<Enemy>>,
+    mut q_enemy: Query<(&mut Transform, &mut EnemyHealth, Entity), With<Enemy>>,
     asset_server: Res<AssetServer>,
+    mut enemy_count: ResMut<EnemyCount>,
     player_stats: Res<PlayerStats>,
+
 ) {
     let Ok((mut player_health, player_entity, mut player, iframes)) = q_player.get_single_mut()
     else {
         return;
     };
     let player_snowball_tf = q_player_snowball.single_mut();
-    for (enemy_tf, mut enemy_health, enemy_entity) in q_enemy.iter_mut() {
+    for (mut enemy_tf, mut enemy_health, enemy_entity) in q_enemy.iter_mut() {
         let pos1 = player_snowball_tf.translation().truncate();
         let pos2 = enemy_tf.translation.truncate();
         let dist = pos1.distance(pos2);
-        let collision_radius = 12.0 * player_snowball_tf.scale().x;
+        //let collision_radius = 12.0 * player_snowball_tf.scale().x;
+        let collision_radius = 10.0 * player_snowball_tf.scale().x; //Made a little smaller to forgive players
+        let max_collision_radius: f32 = 500.;
         let player_poweredup: bool = q_player_poweredup.get_single().is_ok();
+
+        if(dist > max_collision_radius)
+        {
+            // enemy_tf.translation = ((pos1 * 2.) - pos2).extend(0.);
+            // commands.entity(enemy_entity).insert(InvincibleTimer{
+            //     time_left: 1.,
+            // });
+            
+            enemy_count.enemy_count -= 1;
+            commands.entity(enemy_entity).despawn_recursive();
+            continue;
+        }
+
         if !player_poweredup {
             if dist < collision_radius {
                 let collision_direction = (pos2 - pos1).normalize();
