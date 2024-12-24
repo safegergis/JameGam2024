@@ -91,6 +91,7 @@ fn setup_main_menu(
                     app_state.set(AppState::InGame);
                     game_state.set(GameState::Playing);
                 }
+                ui.add_space(30.0);
                 let settings_button = egui::Button::new(
                     egui::RichText::new("Settings")
                         .size(32.0)

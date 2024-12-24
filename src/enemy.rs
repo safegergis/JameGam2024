@@ -1,11 +1,8 @@
-use crate::audio::SFX;
 use crate::camera::InGameCamera;
 use crate::player::Player;
 use crate::player::PlayerHealth;
-use crate::player::PlayerSnowball;
 use crate::utils::YSort;
 use crate::GameState;
-use bevy::audio::PlaybackMode;
 use bevy::prelude::*;
 use rand::Rng;
 pub struct EnemyPlugin<S: States> {
@@ -135,14 +132,10 @@ fn kill_dead_enemies(
     };
     for (health, transform, entity) in enemy_q.iter() {
         if health.health <= 0 {
-            commands.entity(entity).insert((
-                AudioPlayer::new(asset_server.load("sounds/snowman_death.ogg")),
-                PlaybackSettings {
-                    mode: PlaybackMode::Despawn,
-                    ..default()
-                },
+            commands.entity(entity).insert(AudioPlayer::new(
+                asset_server.load("sounds/snowman_death.ogg"),
             ));
-
+            commands.entity(entity).despawn_recursive();
             commands.spawn((
                 EnemyXp { xp: 10 },
                 Sprite::from_image(asset_server.load("xp.png")),
