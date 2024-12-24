@@ -7,10 +7,9 @@ use crate::GameState;
 
 use crate::player::AnimationIndices;
 use crate::player::AnimationTimer;
+use crate::collision::FlashingTimer;
 use crate::player::PlayerStats;
 use crate::utils::YSort;
-use crate::collision::FlashingTimer;
-
 
 use bevy::prelude::*;
 use bevy_egui::egui::debug_text::print;
@@ -38,12 +37,21 @@ impl<S: States> Plugin for EnemyPlugin<S> {
                 min_enemies: 0,
             },
         );
+        app.insert_resource(EnemyTimer(Timer::from_seconds(0.8, TimerMode::Repeating)));
         app.add_systems(
             Update,
-
-            (chase_player, spawn_enemy, wiggle, y_sort, kill_dead_enemies, unfreeze, extinguish, vunerable_tickdown)
-                .run_if(in_state(self.state.clone())).run_if(in_state(GameState::Playing)),
-
+            (
+                chase_player,
+                spawn_enemy,
+                wiggle,
+                y_sort,
+                kill_dead_enemies,
+                unfreeze,
+                extinguish,
+                vunerable_tickdown,
+            )
+                .run_if(in_state(self.state.clone()))
+                .run_if(in_state(GameState::Playing)),
         );
         app.add_systems(OnExit(self.state.clone()), clean_up_enemies);
     }
@@ -78,11 +86,12 @@ pub struct EnemyHealth {
 }
 #[derive(Component)]
 pub struct EnemyXp {
-    pub xp: u32,
+    pub xp: f32,
 }
 #[derive(Component)]
 pub struct ChasePlayer {
     pub speed: f32,
+    pub radius: f32,
 }
 #[derive(Component)]
 pub struct Frozen {
@@ -151,7 +160,11 @@ fn spawn_enemy(
                 ),
                 YSort { z: 32.0 },
                 Enemy,
-                ChasePlayer { speed: 25.0 },
+
+                ChasePlayer {
+                    speed: 25.0,
+                    radius: 1000.0,
+                },
                 EnemyHealth { health: 100. },
             ))
             .id();
@@ -283,7 +296,6 @@ fn kill_dead_enemies(
         return;
     };
     for (health, transform, entity) in enemy_q.iter() {
-
         if health.health <= 0. {
             commands.entity(entity).insert(AudioPlayer::new(
                 asset_server.load("sounds/snowman_death.ogg"),
@@ -291,10 +303,13 @@ fn kill_dead_enemies(
             commands.entity(entity).despawn_recursive();
             enemy_count.enemy_count -= 1;
             commands.spawn((
-                EnemyXp { xp: 10 },
+                EnemyXp { xp: 1.0 },
                 Sprite::from_image(asset_server.load("xp.png")),
                 Transform::from_xyz(transform.translation.x, transform.translation.y, 0.0),
-                ChasePlayer { speed: 100.0 },
+                ChasePlayer {
+                    speed: 100.0,
+                    radius: 80.0,
+                },
             ));
             player_health.hp += 0.2;
         }
@@ -311,6 +326,9 @@ fn chase_player(
     };
     //println!("PlayerPositon coords: {}/{}", player.translation().x, player.translation().y)
     for (mut tf, chase_player) in q.iter_mut() {
+        if tf.translation.distance(player.translation()) > chase_player.radius {
+            continue;
+        }
         let dt = time.delta_secs() * chase_player.speed as f32;
         let dir = (player.translation().truncate() - tf.translation.truncate())
             .normalize()
@@ -319,16 +337,11 @@ fn chase_player(
     }
 }
 
-fn unfreeze(
-    mut commands: Commands,
-    mut q: Query<(&mut Frozen, Entity)>,
-    time: Res<Time>,
-) {
+fn unfreeze(mut commands: Commands, mut q: Query<(&mut Frozen, Entity)>, time: Res<Time>) {
     for (mut frozen, frozen_entity) in q.iter_mut() {
         let dt = time.delta_secs();
         frozen.duration -= dt;
-        if frozen.duration <= 0.0
-        {
+        if frozen.duration <= 0.0 {
             commands.entity(frozen_entity).remove::<Frozen>();
         }
     }
@@ -344,8 +357,7 @@ fn extinguish(
         let dt = time.delta_secs();
         on_fire.duration -= dt;
         enemy_health.health -= stats.fire_dps * dt;
-        if on_fire.duration <= 0.0
-        {
+        if on_fire.duration <= 0.0 {
             commands.entity(on_fire_entity).remove::<OnFire>();
             commands.entity(children[1]).remove::<Blink>();
             commands.entity(children[1]).insert(FlashingTimer {
@@ -364,8 +376,7 @@ fn vunerable_tickdown(
     for (mut vunerable, vunerable_entity) in q.iter_mut() {
         let dt = time.delta_secs();
         vunerable.duration -= dt;
-        if vunerable.duration <= 0.0
-        {
+        if vunerable.duration <= 0.0 {
             commands.entity(vunerable_entity).remove::<Vunerable>();
         }
     }

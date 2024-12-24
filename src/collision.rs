@@ -26,7 +26,7 @@ use bevy::prelude::*;
 const IFRAME_DURATION: f32 = 0.1;
 const FLASH_DURATION: f32 = 0.1;
 const KNOCKBACK_STRENGTH: f32 = 4.0;
-const FRICTION: f32 = 0.5;
+const FRICTION: f32 = 0.2;
 
 pub struct CollisionPlugin<S: States> {
     pub state: S,
@@ -130,7 +130,7 @@ fn projectiles_collision(
                 let knockback_direction = (pos2 - pos1).normalize();
                 commands.entity(enemy_entity).insert(Knockback {
                     direction: knockback_direction,
-                    strength: KNOCKBACK_STRENGTH,
+                    strength: stats.knockback_strength,
                 });
 
                 if projectile.pierce_amount > 0 {
@@ -175,8 +175,11 @@ fn shield_collision(
         (With<Enemy>, Without<Shield>, Without<InvincibleTimer>),
     >,
     asset_server: Res<AssetServer>,
+    player_stats: Res<PlayerStats>,
 ) {
-    let player_tf = q_player.single();
+    let Ok(player_tf) = q_player.get_single() else {
+        return;
+    };
     for (shield_tf, shield) in q_shield.iter() {
         for (enemy_tf, mut enemy_health, enemy_entity, enemy_children) in q_enemy.iter_mut() {
             let pos1 = shield_tf.translation().truncate();
@@ -194,7 +197,7 @@ fn shield_collision(
                 });
                 commands.entity(enemy_entity).insert(Knockback {
                     direction: knockback_direction,
-                    strength: KNOCKBACK_STRENGTH,
+                    strength: player_stats.knockback_strength,
                 });
                 commands.entity(enemy_entity).insert((
                     AudioPlayer::new(asset_server.load("sounds/hit1.ogg")),
@@ -203,6 +206,17 @@ fn shield_collision(
                         ..default()
                     },
                 ));
+                let random_freeze_chance = rand::thread_rng().gen_range(1..100);
+                if player_stats.shield_apply_effects {
+                    if player_stats.freeze_chance >= random_freeze_chance {
+                        commands.entity(enemy_entity).insert(CheckIfFreeze);
+                    }
+
+                    let random_burn_chance = rand::thread_rng().gen_range(1..100);
+                    if player_stats.fire_chance >= random_burn_chance {
+                        commands.entity(enemy_entity).insert(CheckIfFire);
+                    }
+                }
             }
         }
     }
@@ -273,8 +287,13 @@ fn player_collision(
     mut q_enemy: Query<(&mut Transform, &mut EnemyHealth, Entity), With<Enemy>>,
     asset_server: Res<AssetServer>,
     mut enemy_count: ResMut<EnemyCount>,
+    player_stats: Res<PlayerStats>,
+
 ) {
-    let (mut player_health, player_entity, mut player, iframes) = q_player.single_mut();
+    let Ok((mut player_health, player_entity, mut player, iframes)) = q_player.get_single_mut()
+    else {
+        return;
+    };
     let player_snowball_tf = q_player_snowball.single_mut();
     for (mut enemy_tf, mut enemy_health, enemy_entity) in q_enemy.iter_mut() {
         let pos1 = player_snowball_tf.translation().truncate();
@@ -323,16 +342,16 @@ fn player_collision(
                 }
                 commands.entity(enemy_entity).insert(Knockback {
                     direction: collision_direction,
-                    strength: KNOCKBACK_STRENGTH,
+                    strength: player_stats.knockback_strength,
                 });
             }
         } else {
             if dist < collision_radius {
                 let collision_direction = (pos2 - pos1).normalize();
-                enemy_health.health -= 25.;
+                enemy_health.health -= player_stats.snowball_damage_multiplier * 25.;
                 commands.entity(enemy_entity).insert(Knockback {
                     direction: collision_direction,
-                    strength: KNOCKBACK_STRENGTH,
+                    strength: player_stats.knockback_strength * 2.0,
                 });
             }
         }

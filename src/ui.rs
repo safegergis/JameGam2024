@@ -1,3 +1,4 @@
+use crate::player::PlayerStats;
 use crate::player::PlayerXp;
 use crate::GameState;
 use bevy::prelude::*;
@@ -20,10 +21,14 @@ impl<S: States> Plugin for UiPlugin<S> {
 }
 #[derive(Component)]
 struct XpBar;
-fn update_xp_bar(player_q: Query<&PlayerXp>, mut xp_bar_q: Query<&mut Node, With<XpBar>>) {
+fn update_xp_bar(
+    player_q: Query<&PlayerXp>,
+    mut xp_bar_q: Query<&mut Node, With<XpBar>>,
+    player_stats: Res<PlayerStats>,
+) {
     let player_xp = player_q.single();
     let mut xp_bar = xp_bar_q.single_mut();
-    xp_bar.width = Val::Px(player_xp.xp as f32 * 600.0 / 1000.0);
+    xp_bar.width = Val::Px((player_xp.xp / player_stats.xp_requirement) * 600.0);
 }
 
 fn setup_ui(mut commands: Commands, asset_server: Res<AssetServer>) {

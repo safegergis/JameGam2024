@@ -9,7 +9,7 @@ pub struct PickupPlugin<S: States> {
 
 impl<S: States> Plugin for PickupPlugin<S> {
     fn build(&self, app: &mut App) {
-        app.insert_resource(PickupTimer(Timer::from_seconds(5.0, TimerMode::Repeating)));
+        app.insert_resource(PickupTimer(Timer::from_seconds(45.0, TimerMode::Repeating)));
         app.add_systems(
             Update,
             (spawn_pickup, pickup_hover)
@@ -42,7 +42,7 @@ fn spawn_pickup(
         let num_pickups = rng.gen_range(1..=2);
         for _ in 0..num_pickups {
             let angle = rng.gen_range(0.0..std::f32::consts::TAU);
-            let distance = rng.gen_range(90.0..200.0);
+            let distance = rng.gen_range(100.0..200.0);
 
             let offset = Vec2::new(angle.cos() * distance, angle.sin() * distance);
             let pickup_pos = player_transform.translation.truncate() + offset;
