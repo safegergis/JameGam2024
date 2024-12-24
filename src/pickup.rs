@@ -38,37 +38,33 @@ fn spawn_pickup(
     let mut rng = rand::thread_rng();
 
     if pickup_timer.0.tick(time.delta()).just_finished() {
-        // Spawn initial 1-2 pickups
-        let num_pickups = rng.gen_range(1..=2);
-        for _ in 0..num_pickups {
-            let angle = rng.gen_range(0.0..std::f32::consts::TAU);
-            let distance = rng.gen_range(100.0..200.0);
+        let angle = rng.gen_range(0.0..std::f32::consts::TAU);
+        let distance = rng.gen_range(100.0..200.0);
 
-            let offset = Vec2::new(angle.cos() * distance, angle.sin() * distance);
-            let pickup_pos = player_transform.translation.truncate() + offset;
+        let offset = Vec2::new(angle.cos() * distance, angle.sin() * distance);
+        let pickup_pos = player_transform.translation.truncate() + offset;
 
-            let pickup_entity = commands
-                .spawn((
-                    Sprite::from_image(asset_server.load("candycane.png")),
-                    Transform::from_translation(pickup_pos.extend(1.0)),
-                    Pickup,
-                ))
-                .id();
-            let shadow_entity = commands
-                .spawn((
-                    Sprite::from_image(asset_server.load("shadow.png")),
-                    Transform {
-                        translation: Vec3::new(-1.0, -7.0, 0.0),
-                        rotation: Quat::from_rotation_z(0.0),
-                        scale: Vec3::new(1.5, 1.5, 1.0),
-                    },
-                    PickupShadow,
-                    YSort { z: -100.0 },
-                ))
-                .id();
-            commands.entity(pickup_entity).add_child(shadow_entity);
-            println!("Spawned pickup");
-        }
+        let pickup_entity = commands
+            .spawn((
+                Sprite::from_image(asset_server.load("candycane.png")),
+                Transform::from_translation(pickup_pos.extend(1.0)),
+                Pickup,
+            ))
+            .id();
+        let shadow_entity = commands
+            .spawn((
+                Sprite::from_image(asset_server.load("shadow.png")),
+                Transform {
+                    translation: Vec3::new(-1.0, -7.0, 0.0),
+                    rotation: Quat::from_rotation_z(0.0),
+                    scale: Vec3::new(1.5, 1.5, 1.0),
+                },
+                PickupShadow,
+                YSort { z: -100.0 },
+            ))
+            .id();
+        commands.entity(pickup_entity).add_child(shadow_entity);
+        println!("Spawned pickup");
     }
 }
 fn pickup_hover(

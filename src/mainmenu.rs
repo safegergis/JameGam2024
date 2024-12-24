@@ -70,6 +70,7 @@ impl<S: States> Plugin for MainMenuPlugin<S> {
         );
         app.add_systems(Update, setup_settings.run_if(in_state(AppState::Settings)));
         app.add_systems(Update, credits_screen.run_if(in_state(AppState::Credits)));
+        app.add_systems(Update, setup_tutorial.run_if(in_state(AppState::Tutorial)));
     }
 }
 fn load_upgrades(
@@ -352,6 +353,72 @@ fn load_fonts(mut context: EguiContexts) {
         .insert(0, "slkscr".to_owned());
     context.ctx_mut().set_fonts(fonts);
 }
+fn setup_tutorial(mut contexts: EguiContexts, mut app_state: ResMut<NextState<AppState>>) {
+    egui::CentralPanel::default()
+        .frame(egui::Frame::none().fill(egui::Color32::from_rgba_premultiplied(0, 0, 0, 250)))
+        .show(contexts.ctx_mut(), |ui| {
+            ui.vertical_centered(|ui| {
+                ui.add_space(50.0);
+                ui.label(egui::RichText::new("How to Play").size(48.0).strong());
+                ui.add_space(30.0);
+
+                ui.label(
+                    egui::RichText::new("• Enemies come in waves - defeat them to progress!")
+                        .size(24.0),
+                );
+                ui.add_space(20.0);
+
+                ui.label(
+                    egui::RichText::new("• Your snowball grows as you defeat enemies").size(24.0),
+                );
+                ui.label(
+                    egui::RichText::new("  Don't let it get too small or it's game over!")
+                        .size(24.0),
+                );
+                ui.add_space(20.0);
+                ui.label(
+                    egui::RichText::new("The bigger your snowball, the faster you build momentum!")
+                        .size(24.0),
+                );
+                ui.add_space(20.0);
+
+                ui.label(
+                    egui::RichText::new("• Left click to fire candy cane shurikens").size(24.0),
+                );
+                ui.add_space(20.0);
+
+                ui.label(
+                    egui::RichText::new(
+                        "• Collect candy canes on the ground to activate Sugar Rush",
+                    )
+                    .size(24.0),
+                );
+                ui.label(
+                    egui::RichText::new("  Become invincible and plow through enemies!").size(24.0),
+                );
+                ui.add_space(20.0);
+
+                ui.label(
+                    egui::RichText::new("• Fill your XP bar to earn powerful upgrades").size(24.0),
+                );
+                ui.add_space(40.0);
+
+                if ui
+                    .add_sized(
+                        [220.0, 60.0],
+                        egui::Button::new(
+                            egui::RichText::new("Got it!")
+                                .size(32.0)
+                                .color(egui::Color32::WHITE),
+                        ),
+                    )
+                    .clicked()
+                {
+                    app_state.set(AppState::MainMenu);
+                }
+            });
+        });
+}
 fn setup_main_menu(
     mut contexts: EguiContexts,
     mut app_state: ResMut<NextState<AppState>>,
@@ -364,12 +431,12 @@ fn setup_main_menu(
         .frame(egui::Frame::none().fill(egui::Color32::from_rgba_premultiplied(0, 0, 0, 150)))
         .show(contexts.ctx_mut(), |ui| {
             ui.vertical_centered(|ui| {
-                ui.add_space(100.0);
+                ui.add_space(40.0);
                 ui.add(egui::Image::new(egui::load::SizedTexture::new(
                     logo_image,
                     [400.0, 200.0],
                 )));
-                ui.add_space(60.0);
+                ui.add_space(30.0);
 
                 // Stylized play button
                 let play_button = egui::Button::new(
@@ -385,6 +452,21 @@ fn setup_main_menu(
                     app_state.set(AppState::InGame);
                     game_state.set(GameState::Playing);
                 }
+
+                ui.add_space(30.0);
+                let tutorial_button = egui::Button::new(
+                    egui::RichText::new("Tutorial")
+                        .size(32.0)
+                        .color(egui::Color32::from_rgb(240, 240, 255)),
+                );
+                if ui
+                    .add_sized([220.0, 60.0], tutorial_button)
+                    .on_hover_text("Learn the ropes!")
+                    .clicked()
+                {
+                    app_state.set(AppState::Tutorial);
+                }
+
                 ui.add_space(30.0);
                 let settings_button = egui::Button::new(
                     egui::RichText::new("Settings")
