@@ -1,4 +1,5 @@
 use crate::enemy::Enemy;
+use crate::enemy::EnemyTimer;
 use crate::enemy::EnemyCount;
 use crate::enemy::EnemyHealth;
 use crate::enemy::EnemyXp;
@@ -186,7 +187,7 @@ fn shield_collision(
             let pos2 = enemy_tf.translation.truncate();
             let dist = pos1.distance(pos2);
             if dist < 16.0 {
-                enemy_health.health -= shield.damage;
+                enemy_health.health -= player_stats.shield_damage;
                 let knockback_direction = (pos2 - player_tf.translation.truncate()).normalize();
                 commands.entity(enemy_children[1]).insert(FlashingTimer {
                     time_left: FLASH_DURATION,
@@ -288,7 +289,7 @@ fn player_collision(
     asset_server: Res<AssetServer>,
     mut enemy_count: ResMut<EnemyCount>,
     player_stats: Res<PlayerStats>,
-
+    enemy_time: Res<EnemyTimer>,
 ) {
     let Ok((mut player_health, player_entity, mut player, iframes)) = q_player.get_single_mut()
     else {
@@ -306,13 +307,17 @@ fn player_collision(
 
         if(dist > max_collision_radius)
         {
-            // enemy_tf.translation = ((pos1 * 2.) - pos2).extend(0.);
-            // commands.entity(enemy_entity).insert(InvincibleTimer{
-            //     time_left: 1.,
-            // });
-            
-            enemy_count.enemy_count -= 1;
-            commands.entity(enemy_entity).despawn_recursive();
+            if(enemy_time.next_enemy_reached)
+            {
+                enemy_tf.translation = ((pos1 * 2.) - pos2).extend(0.);
+                commands.entity(enemy_entity).insert(InvincibleTimer{
+                    time_left: 1.,
+                });
+            }else {
+                
+                enemy_count.enemy_count -= 1;
+                commands.entity(enemy_entity).despawn_recursive();
+            }         
             continue;
         }
 
@@ -477,7 +482,7 @@ fn freeze_check(
                 }
 
                 if stats.flash_freeze {
-                    enemy_health.health -= enemy_health.health * 0.15;
+                    enemy_health.health -= enemy_health.health * stats.flash_freeze_percent_damage;
                 }
 
                 commands.entity(enemy_entity).remove::<OnFire>();

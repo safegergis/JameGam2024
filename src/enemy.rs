@@ -52,11 +52,11 @@ impl<S: States> Plugin for EnemyPlugin<S> {
 }
 
 #[derive(Resource)]
-struct EnemyTimer {
+pub struct EnemyTimer {
     spawn_time: f32,
     wave_time: f32,
     next_enemy_time: f32,
-    next_enemy_reached: bool,
+    pub next_enemy_reached: bool,
 
     default_time: f32,
     agressive_time: f32,
@@ -155,7 +155,7 @@ fn spawn_enemy(
                     Enemy,
                     ChasePlayer {
                         speed: 25.0,
-                        radius: 1000.0,
+                        radius: 10000.0,
                     },
                     EnemyHealth { health: 100. },
                 ))
@@ -208,8 +208,8 @@ fn spawn_enemy(
                     YSort { z: 32.0 },
                     Enemy,
                     ChasePlayer {
-                        speed: 25.0,
-                        radius: 1000.0,
+                        speed: 26.0,
+                        radius: 10000.0,
                     },
                     EnemyHealth { health: 200. },
                 ))
@@ -302,7 +302,7 @@ fn kill_dead_enemies(
                 Sprite::from_image(asset_server.load("xp.png")),
                 Transform::from_xyz(transform.translation.x, transform.translation.y, 0.0),
                 ChasePlayer {
-                    speed: 100.0,
+                    speed: 200.0,
                     radius: 80.0,
                 },
             ));

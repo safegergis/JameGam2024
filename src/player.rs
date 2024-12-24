@@ -7,6 +7,7 @@ use bevy::input::keyboard::KeyCode;
 use bevy::input::mouse::MouseButton;
 use bevy::prelude::*;
 use bevy::window::PrimaryWindow;
+use bevy_egui::egui::epaint::stats;
 use bevy_hanabi::prelude::*;
 
 #[derive(Resource)]
@@ -57,15 +58,15 @@ impl<S: States> Plugin for PlayerPlugin<S> {
             damage: 34.,
             projectile_speed: 550.0,
             projectile_piercing: 0,
-            projectile_bounces: 1,
+            projectile_bounces: 0,
 
             num_shields: 0,
-            shield_damage: 10.0,
-            shield_rotation_speed: 0.0,
+            shield_damage: 15.0,
+            shield_rotation_speed: 0.05,
             shield_apply_effects: false,
 
             freeze_chance: 0,
-            freeze_duration: 5.,
+            freeze_duration: 3.,
 
             fire_chance: 0,
             fire_duration: 5.,
@@ -425,9 +426,9 @@ fn powerup_player(
 }
 const SHIELD_OFFSET: f32 = 50.0;
 
-fn shield_movement(mut shield_query: Query<&mut Transform, (With<Shield>, Without<Player>)>) {
+fn shield_movement(mut shield_query: Query<&mut Transform, (With<Shield>, Without<Player>)>, stats: Res<PlayerStats>) {
     for mut transform in shield_query.iter_mut() {
-        let rotation = Quat::from_rotation_z(0.05);
+        let rotation = Quat::from_rotation_z(stats.shield_rotation_speed);
         transform.translation = rotation * transform.translation;
     }
 }
