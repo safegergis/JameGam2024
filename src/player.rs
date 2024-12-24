@@ -51,6 +51,7 @@ pub struct Player {
 pub struct Projectile {
     velocity: f32,
     direction: Vec2,
+    pub pierce_amount: i32,
 }
 #[derive(Component)]
 struct ShieldCircle {
@@ -302,6 +303,7 @@ fn fire_projectile(
                 Projectile {
                     velocity: 550.0,
                     direction: projectile_direction,
+                    pierce_amount: 0,
                 },
                 Transform::from_translation(player_position.extend(0.0)),
                 Sprite::from_image(asset_server.load("candycane_shuriken.png")),
