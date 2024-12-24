@@ -2,6 +2,7 @@ use bevy_egui::egui::Resize;
 use rand::Rng;
 use std::time::Duration;
 
+use crate::enemy::Vunerable;
 use crate::enemy::Enemy;
 use crate::enemy::EnemyHealth;
 use crate::enemy::EnemyXp;
@@ -375,14 +376,48 @@ fn destroy_after(
 
 fn freeze_check(
     mut commands: Commands,
-    mut q_entity: Query<(&CheckIfFreeze, Entity, &Children, Option<&Frozen>)>,
+    mut q_entity: Query<(&CheckIfFreeze, &mut EnemyHealth, Entity, &Children, Option<&Frozen>, Option<&OnFire>, Option<&CheckIfFire>)>,
+    fire_query: Query<(&OnFire, Entity, Option<&DestroyAfter>)>,
     stats: Res<PlayerStats>,
     asset_server: Res<AssetServer>,
 ) {
-    for (_check_freeze, enemy_entity, enemy_children, frozen) in q_entity.iter_mut() {
+    for (_check_freeze, mut enemy_health, enemy_entity, enemy_children, frozen, on_fire, fire_check) in q_entity.iter_mut() {
         if let Some(frozen) = frozen {
             commands.entity(enemy_entity).remove::<CheckIfFreeze>();
         } else {
+
+            // Check if on fire
+            if let Some(_on_fire) = on_fire
+            {
+                if let Some(_fire_check) = fire_check
+                {
+                    commands.entity(enemy_entity).remove::<CheckIfFire>();
+                }
+
+                if(stats.flash_freeze)
+                {
+                    enemy_health.health -= enemy_health.health * 0.15;
+                }
+
+                commands.entity(enemy_entity).remove::<OnFire>();
+            commands.entity(enemy_children[1]).remove::<Blink>();
+            commands.entity(enemy_children[1]).insert(FlashingTimer {
+                time_left: 0.0,
+                color: Color::srgba(1., 1., 1., 1.),
+            });
+                for (_child, child_entity, to_destroy) in fire_query.iter_many(enemy_children) {
+                    commands.entity(child_entity).remove::<OnFire>();
+
+                    if let Some(_to_destroy) = to_destroy
+                    {
+                        commands.entity(child_entity).despawn_recursive();
+                    }
+                }
+            }
+            ////////////////////////////////////////////////
+
+
+
             commands.entity(enemy_entity).insert(Frozen {
                 duration: stats.freeze_duration,
             });
@@ -394,6 +429,7 @@ fn freeze_check(
                 .spawn((
                     Sprite::from_image(asset_server.load("Freeze.png")),
                     YSort { z: 0.6 },
+                    Frozen{ duration: stats.freeze_duration},
                     DestroyAfter {
                         duration: stats.freeze_duration,
                     },
@@ -402,20 +438,53 @@ fn freeze_check(
 
             commands.entity(enemy_entity).add_child(freeze_sprite);
         }
+            
+        }
     }
-}
 
 fn fire_check(
     mut commands: Commands,
-    mut q_entity: Query<(&CheckIfFire, Entity, &Children, Option<&OnFire>)>,
+    mut q_entity: Query<(&CheckIfFire, Entity, &Children, Option<&OnFire>, Option<&Frozen>, Option<&CheckIfFreeze>)>,
+    frozen_query: Query<(&Frozen, Entity, Option<&DestroyAfter>)>,
     stats: Res<PlayerStats>,
     asset_server: Res<AssetServer>,
     mut texture_atlas_layouts: ResMut<Assets<TextureAtlasLayout>>,
 ) {
-    for (_check_fire, enemy_entity, enemy_children, on_fire) in q_entity.iter_mut() {
+    for (_check_fire, enemy_entity, enemy_children, on_fire, frozen, freeze_check) in q_entity.iter_mut() {
         if let Some(on_fire) = on_fire {
             commands.entity(enemy_entity).remove::<CheckIfFire>();
         } else {
+
+            //Check if frozen
+            if let Some(_frozen) = frozen
+            {
+                for (_child, child_entity, to_destroy) in frozen_query.iter_many(enemy_children) {
+                    commands.entity(child_entity).remove::<Frozen>();
+                    
+                    if let Some(_to_destroy) = to_destroy
+                    {
+                        commands.entity(child_entity).despawn_recursive();
+                    }
+                }
+
+                commands.entity(enemy_entity).remove::<Frozen>();
+                if let Some(_freeze_check) = freeze_check
+                {
+                    commands.entity(enemy_entity).remove::<CheckIfFreeze>();
+                }
+
+                if(stats.freezer_burn)
+                {
+                    commands.entity(enemy_entity).insert(Vunerable {
+                        duration: 2.,
+                        multiplier: 2.,
+                    });
+                }
+            }
+            //////////////////////////////////////////////
+
+
+
             commands.entity(enemy_entity).insert(OnFire {
                 duration: stats.fire_duration,
             });
@@ -431,6 +500,7 @@ fn fire_check(
             let fire_sprite = commands
                 .spawn((
                     YSort { z: 0.6 },
+                    OnFire{duration: stats.fire_duration},
                     DestroyAfter {
                         duration: stats.fire_duration,
                     },

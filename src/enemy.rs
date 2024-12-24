@@ -28,7 +28,11 @@ impl<S: States> Plugin for EnemyPlugin<S> {
 
 #[derive(Resource)]
 struct EnemyTimer(Timer);
-
+#[derive(Component)]
+pub struct Vunerable {
+    pub multiplier: f32,
+    pub duration: f32,
+}
 #[derive(Component)]
 pub struct EnemyHealth {
     pub health: f32,
@@ -74,7 +78,7 @@ fn spawn_enemy(
                 YSort { z: 32.0 },
                 Enemy,
                 ChasePlayer { speed: 25.0 },
-                EnemyHealth { health: 100. },
+                EnemyHealth { health: 1000. },
             ))
             .id();
 

@@ -22,6 +22,9 @@ pub struct PlayerStats {
     pub fire_chance: i32,
     pub fire_duration: f32,
     pub fire_dps: f32,
+
+    pub flash_freeze: bool, // Freezing burning enemies deals percent damage
+    pub freezer_burn: bool, // Burning frozen enemies vunerables them
 }
 pub struct PlayerPlugin<S: States> {
     pub state: S,
@@ -36,12 +39,15 @@ impl<S: States> Plugin for PlayerPlugin<S> {
             projectile_speed: 550.0,
             projectile_piercing: 10,
 
-            freeze_chance: 0,
-            freeze_duration: 1.,
+            freeze_chance: 100,
+            freeze_duration: 10.,
 
             fire_chance: 100,
-            fire_duration: 3.,
+            fire_duration: 10.,
             fire_dps: 10.,
+
+            flash_freeze: false,
+            freezer_burn: false,
         });
         app.add_systems(Startup, spawn_player);
         app.add_systems(
