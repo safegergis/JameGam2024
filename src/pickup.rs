@@ -1,5 +1,6 @@
 use crate::player::Player;
 use crate::utils::YSort;
+use crate::GameState;
 use bevy::prelude::*;
 use rand::Rng;
 pub struct PickupPlugin<S: States> {
@@ -8,10 +9,13 @@ pub struct PickupPlugin<S: States> {
 
 impl<S: States> Plugin for PickupPlugin<S> {
     fn build(&self, app: &mut App) {
-        app.add_systems(OnEnter(self.state.clone()), spawn_pickup);
         app.insert_resource(PickupTimer(Timer::from_seconds(5.0, TimerMode::Repeating)));
-        app.add_systems(Update, spawn_pickup.run_if(in_state(self.state.clone())));
-        app.add_systems(Update, pickup_hover.run_if(in_state(self.state.clone())));
+        app.add_systems(
+            Update,
+            (spawn_pickup, pickup_hover)
+                .run_if(in_state(self.state.clone()))
+                .run_if(in_state(GameState::Playing)),
+        );
         app.add_systems(OnExit(self.state.clone()), clean_up_pickups);
     }
 }
@@ -28,7 +32,9 @@ fn spawn_pickup(
     time: Res<Time>,
     mut pickup_timer: ResMut<PickupTimer>,
 ) {
-    let player_transform = player.single();
+    let Ok(player_transform) = player.get_single() else {
+        return;
+    };
     let mut rng = rand::thread_rng();
 
     if pickup_timer.0.tick(time.delta()).just_finished() {

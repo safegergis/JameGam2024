@@ -2,6 +2,7 @@ use crate::camera::{InGameCamera, OuterCamera, Rotate};
 use crate::collision::Blink;
 use crate::utils::YSort;
 use crate::AppState;
+use crate::GameState;
 use bevy::input::keyboard::KeyCode;
 use bevy::input::mouse::MouseButton;
 use bevy::prelude::*;
@@ -38,6 +39,9 @@ pub struct PlayerPlugin<S: States> {
 
 impl<S: States> Plugin for PlayerPlugin<S> {
     fn build(&self, app: &mut App) {
+
+
+
         app.insert_resource(PlayerStats {
             rate_of_fire: 0.4,
             acceleration_rate: 500.0,
@@ -61,29 +65,35 @@ impl<S: States> Plugin for PlayerPlugin<S> {
             freezer_burn_duration: 2.,
             freezer_burn_multiplier: 2.,
         });
-        app.add_systems(Startup, spawn_player);
+        app.add_systems(OnEnter(self.state.clone()), spawn_player);
         app.add_systems(
             OnEnter(self.state.clone()),
-            spawn_shield.run_if(in_state(self.state.clone())),
-        );
-        app.add_systems(
-            Update,
-            (
-                player_movement,
-                fire_projectile,
-                projectile_movement,
-                animate_sprite,
-                camera_follow,
-                scale_snowball_to_health,
-                kill_player,
-                powerup_player,
-                delay_fire,
-            )
-                .run_if(in_state(self.state.clone())),
+            spawn_shield
+                .after(spawn_player)
+                .run_if(in_state(GameState::Playing)),
         );
         app.add_systems(
             FixedUpdate,
-            shield_movement.run_if(in_state(self.state.clone())),
+            (
+                player_movement,
+                fire_projectile,
+                animate_sprite,
+                scale_snowball_to_health,
+                kill_player,
+                powerup_player,
+                shield_movement,
+                camera_follow,
+                upgrade_player,
+                delay_fire,
+            )
+                .run_if(in_state(self.state.clone()))
+                .run_if(in_state(GameState::Playing)),
+        );
+        app.add_systems(
+            Update,
+            projectile_movement
+                .run_if(in_state(self.state.clone()))
+                .run_if(in_state(GameState::Playing)),
         );
     }
 }
@@ -194,17 +204,13 @@ fn spawn_player(
     commands.entity(player).add_child(snowball_sprite);
     commands.entity(snowball_sprite).add_child(snowmball_shadow);
 
-
-
-
-
     let mut gradient = Gradient::new();
     gradient.add_key(0.0, Vec3::splat(0.6).extend(1.0));
     gradient.add_key(1.0, Vec3::splat(0.6).extend(1.0));
-  
+
     // Create a new expression module
     let mut module = Module::default();
-  
+
     // On spawn, randomly initialize the position of the particle
     // to be over the surface of a sphere of radius 2 units.
     let init_pos = SetPositionSphereModifier {
@@ -212,33 +218,32 @@ fn spawn_player(
         radius: module.lit(5.),
         dimension: ShapeDimension::Surface,
     };
-  
+
     // Also initialize a radial initial velocity to 6 units/sec
     // away from the (same) sphere center.
     // let init_vel = SetVelocitySphereModifier {
     //     center: module.lit(Vec3::ZERO),
     //     speed: module.lit(6.),
     // };
-  
+
     // Initialize the total lifetime of the particle, that is
     // the time for which it's simulated and rendered. This modifier
     // is almost always required, otherwise the particles won't show.
     let lifetime = module.lit(10.); // literal value "10.0"
-    let init_lifetime = SetAttributeModifier::new(
-        Attribute::LIFETIME, lifetime);
-  
+    let init_lifetime = SetAttributeModifier::new(Attribute::LIFETIME, lifetime);
+
     // Every frame, add a gravity-like acceleration downward
     //let accel = module.lit(Vec3::new(0., -3., 0.));
     //let update_accel = AccelModifier::new(accel);
-  
+
     // Create the effect asset
     let effect = EffectAsset::new(
-      // Maximum number of particles alive at a time
-      32768,
-      // Spawn at a rate of 5 particles per second
-      Spawner::rate(100.0.into()),
-      // Move the expression module into the asset
-      module
+        // Maximum number of particles alive at a time
+        32768,
+        // Spawn at a rate of 5 particles per second
+        Spawner::rate(100.0.into()),
+        // Move the expression module into the asset
+        module,
     )
     .with_name("MyEffect")
     .init(init_pos)
@@ -249,21 +254,27 @@ fn spawn_player(
     // lifetime. This maps the gradient key 0 to the particle spawn
     // time, and the gradient key 1 to the particle death (10s).
     .render(ColorOverLifetimeModifier { gradient })
-    .render(SetSizeModifier { size: Vec3::splat(8.).into() });
-  
+    .render(SetSizeModifier {
+        size: Vec3::splat(8.).into(),
+    });
+
     // Insert into the asset system
     let effect_handle = effects.add(effect);
 
-    let snowball_particle = commands.spawn((
-        Name::new("firework"),
-        ParticleEffectBundle {
-            effect: ParticleEffect::new(effect_handle).with_z_layer_2d(Some(-100.)),
-            transform: Transform::from_xyz(0.0, -6., -100.0),
-            ..Default::default()
-        },
-    )).id();
+    let snowball_particle = commands
+        .spawn((
+            Name::new("firework"),
+            ParticleEffectBundle {
+                effect: ParticleEffect::new(effect_handle).with_z_layer_2d(Some(-100.)),
+                transform: Transform::from_xyz(0.0, -6., -100.0),
+                ..Default::default()
+            },
+        ))
+        .id();
 
-    commands.entity(snowmball_shadow).add_child(snowball_particle);
+    commands
+        .entity(snowmball_shadow)
+        .add_child(snowball_particle);
 }
 
 fn player_movement(
@@ -301,7 +312,7 @@ fn player_movement(
     }
 
     // Move player based on velocity
-    transform.translation += (player.velocity * time.delta_secs()).extend(0.0);
+    transform.translation += player.velocity.extend(0.0) * time.delta_secs();
 }
 
 fn camera_follow(
@@ -404,7 +415,9 @@ fn spawn_shield(
     q_player: Query<(Entity, &Transform, &ShieldCircle), With<Player>>,
     asset_server: Res<AssetServer>,
 ) {
-    let (player_entity, player_transform, shield_circle) = q_player.single();
+    let Ok((player_entity, player_transform, shield_circle)) = q_player.get_single() else {
+        return;
+    };
     for i in 0..shield_circle.number {
         let child = commands
             .spawn((
@@ -442,8 +455,18 @@ fn scale_snowball_to_health(
 fn kill_player(mut commands: Commands, q_player: Query<(Entity, &PlayerHealth), With<Player>>) {
     let (player_entity, player_health) = q_player.single();
     if player_health.hp <= 0.0 {
-        commands.entity(player_entity).despawn_recursive();
         commands.set_state(AppState::GameOver);
+        commands.set_state(GameState::Paused);
+        commands.entity(player_entity).despawn_recursive();
+    }
+}
+fn upgrade_player(
+    q_player: Query<&PlayerXp, With<Player>>,
+    mut game_state: ResMut<NextState<GameState>>,
+) {
+    let player_xp = q_player.single();
+    if player_xp.xp >= 1000 {
+        game_state.set(GameState::Upgrade);
     }
 }
 

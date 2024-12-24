@@ -1,7 +1,7 @@
+
 use bevy_egui::egui::Resize;
 use rand::Rng;
 use std::time::Duration;
-
 use crate::enemy::Vunerable;
 use crate::enemy::Enemy;
 use crate::enemy::EnemyHealth;
@@ -21,11 +21,12 @@ use crate::player::PlayerXp;
 use crate::player::PoweredUp;
 use crate::player::Projectile;
 use crate::player::Shield;
-
+use crate::GameState;
+use bevy::audio::PlaybackMode;
 use bevy::prelude::*;
 
-const IFRAME_DURATION: f32 = 0.05;
-const FLASH_DURATION: f32 = 0.05;
+const IFRAME_DURATION: f32 = 0.1;
+const FLASH_DURATION: f32 = 0.1;
 const KNOCKBACK_STRENGTH: f32 = 4.0;
 const FRICTION: f32 = 0.5;
 
@@ -58,7 +59,8 @@ impl<S: States> Plugin for CollisionPlugin<S> {
                 xp_collision,
                 pickup_colliisions,
             )
-                .run_if(in_state(self.state.clone())),
+                .run_if(in_state(self.state.clone()))
+                .run_if(in_state(GameState::Playing)),
         );
         app.add_systems(
             Update,
@@ -68,7 +70,8 @@ impl<S: States> Plugin for CollisionPlugin<S> {
                 invincible,
                 destroy_after,
             )
-                .run_if(in_state(self.state.clone())),
+                .run_if(in_state(self.state.clone())
+                .run_if(in_state(GameState::Playing))),
         );
         app.add_systems(OnExit(self.state.clone()), cleanup_xp);
     }
@@ -113,7 +116,8 @@ fn projectiles_collision(
         (&mut EnemyHealth, &Transform, Entity, &Children),
         (With<Enemy>, Without<InvincibleTimer>),
     >,
-    stats: Res<PlayerStats>,
+  asset_server: Res<AssetServer>,
+  stats: Res<PlayerStats>,
 ) {
     for (projectile_entity, projectile_tf, mut projectile, vunerable) in projectiles_q.iter_mut() {
         for (mut health, enemy_tf, enemy_entity, enemy_children) in enemies_q.iter_mut() {
@@ -145,11 +149,16 @@ fn projectiles_collision(
                     time_left: FLASH_DURATION,
                     color: Color::srgba(12., 12., 12., 1.),
                 });
-
                 commands.entity(enemy_entity).insert(InvincibleTimer {
                     time_left: IFRAME_DURATION,
                 });
-
+                commands.entity(enemy_entity).insert((
+                    AudioPlayer::new(asset_server.load("sounds/hit1.ogg")),
+                    PlaybackSettings {
+                        mode: PlaybackMode::Remove,
+                        ..default()
+                    },
+                ));
                 let random_freeze_chance = rand::thread_rng().gen_range(1..100);
                 if stats.freeze_chance >= random_freeze_chance {
                     commands.entity(enemy_entity).insert(CheckIfFreeze);
@@ -171,6 +180,7 @@ fn shield_collision(
         (&Transform, &mut EnemyHealth, Entity, &Children),
         (With<Enemy>, Without<Shield>, Without<InvincibleTimer>),
     >,
+    asset_server: Res<AssetServer>,
 ) {
     let player_tf = q_player.single();
     for (shield_tf, shield) in q_shield.iter() {
@@ -192,6 +202,13 @@ fn shield_collision(
                     direction: knockback_direction,
                     strength: KNOCKBACK_STRENGTH,
                 });
+                commands.entity(enemy_entity).insert((
+                    AudioPlayer::new(asset_server.load("sounds/hit1.ogg")),
+                    PlaybackSettings {
+                        mode: PlaybackMode::Remove,
+                        ..default()
+                    },
+                ));
             }
         }
     }
@@ -218,6 +235,7 @@ fn enemy_collision(mut q: Query<&mut Transform, With<Enemy>>) {
 }
 fn pickup_colliisions(
     mut commands: Commands,
+    asset_server: Res<AssetServer>,
     q_pickup: Query<(&Transform, Entity), (With<Pickup>, Without<Player>)>,
     q_player: Query<(&Transform, Entity), With<Player>>,
 ) {
@@ -235,6 +253,13 @@ fn pickup_colliisions(
                 color: Color::srgba(0., 1., 0., 1.),
                 speed: 1.0,
             });
+            commands.entity(player_entity).insert((
+                AudioPlayer::new(asset_server.load("sounds/powerup.ogg")),
+                PlaybackSettings {
+                    mode: PlaybackMode::Remove,
+                    ..default()
+                },
+            ));
         }
     }
 }
@@ -252,6 +277,7 @@ fn player_collision(
     mut q_player_snowball: Query<&mut GlobalTransform, With<PlayerSnowball>>,
     q_player_poweredup: Query<Entity, (With<PoweredUp>, Without<PlayerSnowball>)>,
     mut q_enemy: Query<(&Transform, &mut EnemyHealth, Entity), With<Enemy>>,
+    asset_server: Res<AssetServer>,
 ) {
     let (mut player_health, player_entity, mut player, iframes) = q_player.single_mut();
     let player_snowball_tf = q_player_snowball.single_mut();
@@ -268,6 +294,14 @@ fn player_collision(
                 } else {
                     player_health.hp -= 3.0;
                     player.velocity = player.velocity * 0.5;
+
+                    commands.entity(player_entity).insert((
+                        AudioPlayer::new(asset_server.load("sounds/hit2.ogg")),
+                        PlaybackSettings {
+                            mode: PlaybackMode::Remove,
+                            ..default()
+                        },
+                    ));
 
                     commands.entity(player_entity).insert(FlashingTimer {
                         time_left: FLASH_DURATION,
