@@ -92,20 +92,18 @@ impl<S: States> Plugin for PlayerPlugin<S> {
                 animate_sprite,
                 scale_snowball_to_health,
                 kill_player,
-                powerup_player,
                 shield_movement,
                 camera_follow,
                 upgrade_player,
                 delay_fire,
                 update_shields,
-                blink_player,
             )
                 .run_if(in_state(self.state.clone()))
                 .run_if(in_state(GameState::Playing)),
         );
         app.add_systems(
             Update,
-            projectile_movement
+            (projectile_movement, powerup_player)
                 .run_if(in_state(self.state.clone()))
                 .run_if(in_state(GameState::Playing)),
         );
@@ -567,21 +565,4 @@ fn update_shields(
 
     // 3) Update our last known shield count
     last_shield_count.count = player_stats.num_shields;
-}
-fn blink_player(
-    mut commands: Commands,
-    mut q_player: Query<(Entity, &PlayerHealth, &mut Sprite), With<Player>>,
-) {
-    let Ok((player_entity, player_health, mut sprite)) = q_player.get_single_mut() else {
-        return;
-    };
-    if player_health.hp < 10.0 {
-        commands.entity(player_entity).insert(Blink {
-            color: Color::srgba(1., 0., 0., 1.),
-            speed: 3.,
-        });
-    } else {
-        commands.entity(player_entity).remove::<Blink>();
-        sprite.color = Color::srgba(1., 1., 1., 1.);
-    }
 }

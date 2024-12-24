@@ -126,7 +126,7 @@ fn spawn_enemy(
         }
     }
 
-    println!("{}", enemy_count.enemy_count);
+    //println!("{}", enemy_=ount.enemy_count);
     timer.spawn_time -= time.delta_secs();
     if timer.spawn_time <= 0. && enemy_count.enemy_count < enemy_count.max_enemies {
         if enemy_count.enemy_count > enemy_count.min_enemies {

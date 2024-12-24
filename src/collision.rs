@@ -1,7 +1,7 @@
 use crate::enemy::Enemy;
-use crate::enemy::EnemyTimer;
 use crate::enemy::EnemyCount;
 use crate::enemy::EnemyHealth;
+use crate::enemy::EnemyTimer;
 use crate::enemy::EnemyXp;
 use crate::enemy::Frozen;
 use crate::enemy::OnFire;
@@ -305,19 +305,16 @@ fn player_collision(
         let max_collision_radius: f32 = 500.;
         let player_poweredup: bool = q_player_poweredup.get_single().is_ok();
 
-        if(dist > max_collision_radius)
-        {
-            if(enemy_time.next_enemy_reached)
-            {
+        if (dist > max_collision_radius) {
+            if (enemy_time.next_enemy_reached) {
                 enemy_tf.translation = ((pos1 * 2.) - pos2).extend(0.);
-                commands.entity(enemy_entity).insert(InvincibleTimer{
-                    time_left: 1.,
-                });
-            }else {
-                
+                commands
+                    .entity(enemy_entity)
+                    .insert(InvincibleTimer { time_left: 1. });
+            } else {
                 enemy_count.enemy_count -= 1;
                 commands.entity(enemy_entity).despawn_recursive();
-            }         
+            }
             continue;
         }
 
