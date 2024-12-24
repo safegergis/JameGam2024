@@ -9,12 +9,19 @@ use bevy::window::PrimaryWindow;
 use bevy_hanabi::prelude::*;
 
 #[derive(Resource)]
-struct PlayerStats {
-    rate_of_fire: f32,
-    acceleration_rate: f32,
+pub struct PlayerStats {
+    pub rate_of_fire: f32,
+    pub acceleration_rate: f32,
 
-    projectile_speed: f32,
-    projectile_piercing: i32,
+    pub projectile_speed: f32,
+    pub projectile_piercing: i32,
+
+    pub freeze_chance: i32,
+    pub freeze_duration: f32,
+    
+    pub fire_chance: i32,
+    pub fire_duration: f32,
+    pub fire_dps: f32,
 }
 pub struct PlayerPlugin<S: States> {
     pub state: S,
@@ -27,7 +34,14 @@ impl<S: States> Plugin for PlayerPlugin<S> {
             acceleration_rate: 500.0,
 
             projectile_speed: 550.0,
-            projectile_piercing: 1,
+            projectile_piercing: 10,
+
+            freeze_chance: 0,
+            freeze_duration: 1.,
+
+            fire_chance: 100,
+            fire_duration: 3.,
+            fire_dps: 10.,
         });
         app.add_systems(Startup, spawn_player);
         app.add_systems(
@@ -74,7 +88,7 @@ struct ShieldCircle {
 }
 #[derive(Component)]
 pub struct Shield {
-    pub damage: u32,
+    pub damage: f32,
 }
 #[derive(Component)]
 pub struct PlayerXp {
@@ -374,7 +388,7 @@ fn spawn_shield(
     for i in 0..shield_circle.number {
         let child = commands
             .spawn((
-                Shield { damage: 10 },
+                Shield { damage: 10.},
                 Transform::from_translation({
                     let angle =
                         (i as f32) * 2.0 * std::f32::consts::PI / (shield_circle.number as f32);
@@ -428,13 +442,13 @@ fn delay_fire(
 }
 
 #[derive(Component)]
-struct AnimationIndices {
-    first: usize,
-    last: usize,
+pub struct AnimationIndices {
+    pub first: usize,
+    pub last: usize,
 }
 
 #[derive(Component, Deref, DerefMut)]
-struct AnimationTimer(Timer);
+pub struct AnimationTimer(pub Timer);
 
 fn animate_sprite(
     time: Res<Time>,

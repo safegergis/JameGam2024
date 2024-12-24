@@ -1,10 +1,14 @@
 use crate::camera::InGameCamera;
+use crate::collision::Blink;
 use crate::player::Player;
 use crate::player::PlayerHealth;
 use crate::player::PlayerSnowball;
+use crate::player::PlayerStats;
 use crate::utils::YSort;
+use crate::collision::FlashingTimer;
 
 use bevy::prelude::*;
+use bevy::sprite;
 use rand::Rng;
 pub struct EnemyPlugin<S: States> {
     pub state: S,
@@ -15,7 +19,7 @@ impl<S: States> Plugin for EnemyPlugin<S> {
         app.insert_resource(EnemyTimer(Timer::from_seconds(0.05, TimerMode::Repeating)));
         app.add_systems(
             Update,
-            (chase_player, spawn_enemy, wiggle, y_sort, kill_dead_enemies)
+            (chase_player, spawn_enemy, wiggle, y_sort, kill_dead_enemies, unfreeze, extinguish)
                 .run_if(in_state(self.state.clone())),
         );
         app.add_systems(OnExit(self.state.clone()), clean_up_enemies);
@@ -27,7 +31,7 @@ struct EnemyTimer(Timer);
 
 #[derive(Component)]
 pub struct EnemyHealth {
-    pub health: i32,
+    pub health: f32,
 }
 #[derive(Component)]
 pub struct EnemyXp {
@@ -37,6 +41,15 @@ pub struct EnemyXp {
 pub struct ChasePlayer {
     pub speed: f32,
 }
+#[derive(Component)]
+pub struct Frozen {
+    pub duration: f32,
+}
+#[derive(Component)]
+pub struct OnFire {
+    pub duration: f32,
+}
+
 fn spawn_enemy(
     q_camera: Query<(&Camera, &GlobalTransform), With<InGameCamera>>,
     time: Res<Time>,
@@ -61,7 +74,7 @@ fn spawn_enemy(
                 YSort { z: 32.0 },
                 Enemy,
                 ChasePlayer { speed: 25.0 },
-                EnemyHealth { health: 100 },
+                EnemyHealth { health: 100. },
             ))
             .id();
 
@@ -106,7 +119,7 @@ pub struct Wiggle {
     pub offset: f32,
 }
 
-fn wiggle(time: Res<Time>, mut q: Query<(&mut Transform, &Wiggle)>) {
+fn wiggle(time: Res<Time>, mut q: Query<(&mut Transform, &Wiggle), Without<Frozen>>) {
     for (mut tf, wiggle) in q.iter_mut() {
         let rotate_sin = f32::sin(wiggle.offset + time.elapsed_secs() * wiggle.rotate_speed);
         let scale_sin = f32::sin(wiggle.offset + time.elapsed_secs() * wiggle.scale_speed);
@@ -131,7 +144,7 @@ fn kill_dead_enemies(
     let mut player_health = q_player.single_mut();
     let snowball_transform = q_snowball.single_mut();
     for (health, transform, entity) in enemy_q.iter() {
-        if health.health <= 0 {
+        if health.health <= 0. {
             commands.entity(entity).despawn_recursive();
             commands.spawn((
                 EnemyXp { xp: 10 },
@@ -147,7 +160,7 @@ fn kill_dead_enemies(
 fn chase_player(
     time: Res<Time>,
     q_player: Query<(&GlobalTransform, &Player)>,
-    mut q: Query<(&mut Transform, &ChasePlayer)>,
+    mut q: Query<(&mut Transform, &ChasePlayer), Without<Frozen>>,
 ) {
     let (player, _player_transform) = q_player.single();
     //println!("PlayerPositon coords: {}/{}", player.translation().x, player.translation().y)
@@ -157,6 +170,43 @@ fn chase_player(
             .normalize()
             .extend(0.0);
         tf.translation += dir * dt;
+    }
+}
+
+fn unfreeze(
+    mut commands: Commands,
+    mut q: Query<(&mut Frozen, Entity)>,
+    time: Res<Time>,
+) {
+    for (mut frozen, frozen_entity) in q.iter_mut() {
+        let dt = time.delta_secs();
+        frozen.duration -= dt;
+        if(frozen.duration <= 0.0)
+        {
+            commands.entity(frozen_entity).remove::<Frozen>();
+        }
+    }
+}
+
+fn extinguish(
+    mut commands: Commands,
+    mut q: Query<(&mut OnFire, &mut EnemyHealth, &Children, Entity)>,
+    time: Res<Time>,
+    stats: Res<PlayerStats>,
+) {
+    for (mut on_fire, mut enemy_health, children, on_fire_entity) in q.iter_mut() {
+        let dt = time.delta_secs();
+        on_fire.duration -= dt;
+        enemy_health.health -= stats.fire_dps * dt;
+        if(on_fire.duration <= 0.0)
+        {
+            commands.entity(on_fire_entity).remove::<OnFire>();
+            commands.entity(children[1]).remove::<Blink>();
+            commands.entity(children[1]).insert(FlashingTimer {
+                time_left: 0.0,
+                color: Color::srgba(1., 1., 1., 1.),
+            });
+        }
     }
 }
 
