@@ -1,4 +1,5 @@
 use crate::player::Player;
+use crate::utils::YSort;
 use bevy::prelude::*;
 use rand::Rng;
 pub struct PickupPlugin<S: States> {
@@ -15,7 +16,7 @@ impl<S: States> Plugin for PickupPlugin<S> {
     }
 }
 #[derive(Component)]
-struct Pickup;
+pub struct Pickup;
 #[derive(Component)]
 struct PickupShadow;
 #[derive(Resource)]
@@ -35,29 +36,46 @@ fn spawn_pickup(
         let num_pickups = rng.gen_range(1..=2);
         for _ in 0..num_pickups {
             let angle = rng.gen_range(0.0..std::f32::consts::TAU);
-            let distance = rng.gen_range(50.0..150.0);
+            let distance = rng.gen_range(90.0..200.0);
 
             let offset = Vec2::new(angle.cos() * distance, angle.sin() * distance);
             let pickup_pos = player_transform.translation.truncate() + offset;
 
-            commands.spawn((
-                Sprite::from_image(asset_server.load("candycane.png")),
-                Transform::from_translation(pickup_pos.extend(1.0)),
-                Pickup,
-            ));
-            commands.spawn((
-                Sprite::from_image(asset_server.load("shadow.png")),
-                Transform::from_translation(pickup_pos.extend(1.0) - Vec3::new(0.0, 8.0, 0.0)),
-                PickupShadow,
-            ));
+            let pickup_entity = commands
+                .spawn((
+                    Sprite::from_image(asset_server.load("candycane.png")),
+                    Transform::from_translation(pickup_pos.extend(1.0)),
+                    Pickup,
+                ))
+                .id();
+            let shadow_entity = commands
+                .spawn((
+                    Sprite::from_image(asset_server.load("shadow.png")),
+                    Transform {
+                        translation: Vec3::new(-1.0, -7.0, 0.0),
+                        rotation: Quat::from_rotation_z(0.0),
+                        scale: Vec3::new(1.5, 1.5, 1.0),
+                    },
+                    PickupShadow,
+                    YSort { z: -100.0 },
+                ))
+                .id();
+            commands.entity(pickup_entity).add_child(shadow_entity);
             println!("Spawned pickup");
         }
     }
 }
-fn pickup_hover(mut query: Query<&mut Transform, With<Pickup>>, time: Res<Time>) {
-    for mut transform in query.iter_mut() {
-        let time = time.elapsed_secs();
-        transform.translation.y += (time * 2.0).sin() * 0.1;
+fn pickup_hover(
+    mut q_pickup: Query<&mut Transform, (With<Pickup>, Without<PickupShadow>)>,
+    mut q_shadow: Query<&mut Transform, With<PickupShadow>>,
+    time: Res<Time>,
+) {
+    let time = time.elapsed_secs();
+    for mut shadow_transform in q_shadow.iter_mut() {
+        shadow_transform.translation.y -= (time * 4.0).sin() * 0.1;
+    }
+    for mut transform in q_pickup.iter_mut() {
+        transform.translation.y += (time * 4.0).sin() * 0.1;
     }
 }
 fn clean_up_pickups(mut commands: Commands, pickup_query: Query<Entity, With<Pickup>>) {

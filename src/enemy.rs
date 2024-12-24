@@ -129,7 +129,7 @@ fn kill_dead_enemies(
     asset_server: Res<AssetServer>,
 ) {
     let mut player_health = q_player.single_mut();
-    let mut snowball_transform = q_snowball.single_mut();
+    let snowball_transform = q_snowball.single_mut();
     for (health, transform, entity) in enemy_q.iter() {
         if health.health <= 0 {
             commands.entity(entity).despawn_recursive();
