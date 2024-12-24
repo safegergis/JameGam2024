@@ -9,9 +9,7 @@ use crate::player::AnimationIndices;
 use crate::player::AnimationTimer;
 use crate::player::PlayerStats;
 use crate::utils::YSort;
-use bevy_egui::egui::Resize;
 use rand::Rng;
-use std::time::Duration;
 
 use crate::player::Player;
 use crate::player::PlayerHealth;
@@ -106,7 +104,7 @@ fn projectiles_collision(
     mut commands: Commands,
     mut projectiles_q: Query<
         (Entity, &Transform, &mut Projectile, Option<&Vunerable>),
-        (Without<Enemy>),
+        Without<Enemy>,
     >,
     mut enemies_q: Query<
         (&mut EnemyHealth, &Transform, Entity, &Children),
@@ -402,7 +400,7 @@ fn destroy_after(
     for (mut destroy_after, destroy_entity) in q.iter_mut() {
         let dt = time.delta_secs();
         destroy_after.duration -= dt;
-        if (destroy_after.duration <= 0.0) {
+        if destroy_after.duration <= 0.0 {
             commands.entity(destroy_entity).despawn_recursive();
         }
     }
@@ -442,7 +440,7 @@ fn freeze_check(
                     commands.entity(enemy_entity).remove::<CheckIfFire>();
                 }
 
-                if (stats.flash_freeze) {
+                if stats.flash_freeze {
                     enemy_health.health -= enemy_health.health * 0.15;
                 }
 
@@ -523,7 +521,7 @@ fn fire_check(
                     commands.entity(enemy_entity).remove::<CheckIfFreeze>();
                 }
 
-                if (stats.freezer_burn) {
+                if stats.freezer_burn {
                     commands.entity(enemy_entity).insert(Vunerable {
                         duration: stats.freezer_burn_duration,
                         multiplier: stats.freezer_burn_multiplier,

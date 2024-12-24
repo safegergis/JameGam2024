@@ -5,14 +5,12 @@ use crate::player::PlayerHealth;
 
 use crate::GameState;
 
-use crate::player::PlayerSnowball;
 use crate::player::PlayerStats;
 use crate::utils::YSort;
 use crate::collision::FlashingTimer;
 
 
 use bevy::prelude::*;
-use bevy::sprite;
 use rand::Rng;
 pub struct EnemyPlugin<S: States> {
     pub state: S,
@@ -197,7 +195,7 @@ fn unfreeze(
     for (mut frozen, frozen_entity) in q.iter_mut() {
         let dt = time.delta_secs();
         frozen.duration -= dt;
-        if(frozen.duration <= 0.0)
+        if frozen.duration <= 0.0
         {
             commands.entity(frozen_entity).remove::<Frozen>();
         }
@@ -214,7 +212,7 @@ fn extinguish(
         let dt = time.delta_secs();
         on_fire.duration -= dt;
         enemy_health.health -= stats.fire_dps * dt;
-        if(on_fire.duration <= 0.0)
+        if on_fire.duration <= 0.0
         {
             commands.entity(on_fire_entity).remove::<OnFire>();
             commands.entity(children[1]).remove::<Blink>();
@@ -234,7 +232,7 @@ fn vunerable_tickdown(
     for (mut vunerable, vunerable_entity) in q.iter_mut() {
         let dt = time.delta_secs();
         vunerable.duration -= dt;
-        if(vunerable.duration <= 0.0)
+        if vunerable.duration <= 0.0
         {
             commands.entity(vunerable_entity).remove::<Vunerable>();
         }

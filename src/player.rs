@@ -21,7 +21,7 @@ pub struct PlayerStats {
 
     pub freeze_chance: i32,
     pub freeze_duration: f32,
-    
+
     pub fire_chance: i32,
     pub fire_duration: f32,
     pub fire_dps: f32,
@@ -33,15 +33,13 @@ pub struct PlayerStats {
     pub freezer_burn_duration: f32,
     pub freezer_burn_multiplier: f32,
 }
+
 pub struct PlayerPlugin<S: States> {
     pub state: S,
 }
 
 impl<S: States> Plugin for PlayerPlugin<S> {
     fn build(&self, app: &mut App) {
-
-
-
         app.insert_resource(PlayerStats {
             rate_of_fire: 0.4,
             acceleration_rate: 500.0,
@@ -362,12 +360,11 @@ fn fire_projectile(
         let player_position = player_transform.translation.truncate();
         let projectile_direction = (new_world_position - player_position).normalize();
 
-        if let Some(fire_timer) = fire_timer
-        {
+        if let Some(fire_timer) = fire_timer {
             return;
         }
 
-        if  mouse_button.pressed(MouseButton::Left) {
+        if mouse_button.pressed(MouseButton::Left) {
             commands.spawn((
                 Projectile {
                     velocity: stats.projectile_speed,
@@ -421,7 +418,7 @@ fn spawn_shield(
     for i in 0..shield_circle.number {
         let child = commands
             .spawn((
-                Shield { damage: 10.},
+                Shield { damage: 10. },
                 Transform::from_translation({
                     let angle =
                         (i as f32) * 2.0 * std::f32::consts::PI / (shield_circle.number as f32);
@@ -470,11 +467,7 @@ fn upgrade_player(
     }
 }
 
-fn delay_fire(
-    mut commands: Commands,
-    mut q: Query<(Entity, &mut FireTimer)>,
-    time: Res<Time>,
-) {
+fn delay_fire(mut commands: Commands, mut q: Query<(Entity, &mut FireTimer)>, time: Res<Time>) {
     for (entity, mut fire_timer) in q.iter_mut() {
         fire_timer.timer.tick(time.delta());
 
