@@ -165,6 +165,7 @@ fn y_sort(mut q: Query<(&mut Transform, &YSort)>) {
         tf.translation.z = ysort.z - (1.0f32 / (1.0f32 + (2.0f32.powf(-0.01 * tf.translation.y))));
     }
 }
+
 fn clean_up_enemies(mut commands: Commands, enemy_q: Query<Entity, With<Enemy>>) {
     for entity in enemy_q.iter() {
         commands.entity(entity).despawn_recursive();
