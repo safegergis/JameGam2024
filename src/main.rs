@@ -23,6 +23,7 @@ use ui::UiPlugin;
 pub enum GameState {
     Playing,
     Paused,
+    Upgrade,
 }
 #[derive(Debug, Clone, Copy, Eq, PartialEq, Hash, States)]
 pub enum AppState {

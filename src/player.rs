@@ -33,6 +33,7 @@ impl<S: States> Plugin for PlayerPlugin<S> {
                 powerup_player,
                 shield_movement,
                 camera_follow,
+                upgrade_player,
             )
                 .run_if(in_state(self.state.clone()))
                 .run_if(in_state(GameState::Playing)),
@@ -391,6 +392,15 @@ fn kill_player(mut commands: Commands, q_player: Query<(Entity, &PlayerHealth), 
         commands.set_state(AppState::GameOver);
         commands.set_state(GameState::Paused);
         commands.entity(player_entity).despawn_recursive();
+    }
+}
+fn upgrade_player(
+    q_player: Query<&PlayerXp, With<Player>>,
+    mut game_state: ResMut<NextState<GameState>>,
+) {
+    let player_xp = q_player.single();
+    if player_xp.xp >= 20 {
+        game_state.set(GameState::Upgrade);
     }
 }
 #[derive(Component)]
