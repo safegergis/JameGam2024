@@ -19,6 +19,17 @@ impl FromWorld for ImageIcons {
         }
     }
 }
+struct LogoImage {
+    logo: Handle<Image>,
+}
+impl FromWorld for LogoImage {
+    fn from_world(world: &mut World) -> Self {
+        let asset_server = world.get_resource::<AssetServer>().unwrap();
+        Self {
+            logo: asset_server.load("logo.png"),
+        }
+    }
+}
 pub struct MainMenuPlugin<S: States> {
     pub state: S,
 }
@@ -61,20 +72,19 @@ fn setup_main_menu(
     mut contexts: EguiContexts,
     mut app_state: ResMut<NextState<AppState>>,
     mut game_state: ResMut<NextState<GameState>>,
+    logo_image: Local<LogoImage>,
 ) {
+    let logo_image = contexts.add_image(logo_image.logo.clone());
+
     egui::CentralPanel::default()
-        .frame(egui::Frame::none().fill(egui::Color32::from_rgba_premultiplied(0, 0, 0, 250)))
+        .frame(egui::Frame::none().fill(egui::Color32::from_rgba_premultiplied(0, 0, 0, 150)))
         .show(contexts.ctx_mut(), |ui| {
             ui.vertical_centered(|ui| {
                 ui.add_space(100.0);
-
-                // Title with shadow effect
-                let title = egui::RichText::new("Snow Elf Adventure")
-                    .size(48.0)
-                    .color(egui::Color32::from_rgb(50, 50, 150))
-                    .strong();
-
-                ui.add(egui::Label::new(title));
+                ui.add(egui::Image::new(egui::load::SizedTexture::new(
+                    logo_image,
+                    [400.0, 200.0],
+                )));
                 ui.add_space(60.0);
 
                 // Stylized play button
