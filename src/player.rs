@@ -427,7 +427,10 @@ fn powerup_player(
 }
 const SHIELD_OFFSET: f32 = 50.0;
 
-fn shield_movement(mut shield_query: Query<&mut Transform, (With<Shield>, Without<Player>)>, stats: Res<PlayerStats>) {
+fn shield_movement(
+    mut shield_query: Query<&mut Transform, (With<Shield>, Without<Player>)>,
+    stats: Res<PlayerStats>,
+) {
     for mut transform in shield_query.iter_mut() {
         let rotation = Quat::from_rotation_z(stats.shield_rotation_speed);
         transform.translation = rotation * transform.translation;
@@ -462,7 +465,9 @@ fn upgrade_player(
     mut game_state: ResMut<NextState<GameState>>,
     mut player_stats: ResMut<PlayerStats>,
 ) {
-    let mut player_xp = q_player.single_mut();
+    let Ok(mut player_xp) = q_player.get_single_mut() else {
+        return;
+    };
     if player_xp.xp >= player_stats.xp_requirement {
         game_state.set(GameState::Upgrade);
         player_xp.xp = 0.0;

@@ -89,7 +89,7 @@ fn load_upgrades(
     commands.insert_resource(UpgradeCards {
         upgrades: [
             UpgradeCard {
-                name: "Chesnut Shield".to_string(),
+                name: "Chestnut Shield".to_string(),
                 icon: rendered_shield_icon,
                 description: "Adds an orbiting chestnut shield that protects you from enemies"
                     .to_string(),
@@ -750,6 +750,7 @@ fn generate_available_upgrades(
     // 1) Re-check each upgrade’s “prereq_met” based on current player_stats
     for upgrade in &mut upgrades.upgrades {
         let meets_requirements = match upgrade.upgrade_id {
+            5 => player_stats.num_shields > 0,
             6 => player_stats.num_shields > 0,
             8 => player_stats.freeze_chance > 0,
             10 | 11 => player_stats.fire_chance > 0,
