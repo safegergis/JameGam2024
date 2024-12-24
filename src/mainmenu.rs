@@ -1,13 +1,18 @@
+use crate::player::PlayerStats;
 use crate::AppState;
 use crate::GameState;
 use crate::Volume;
 use bevy::input::keyboard::KeyCode;
 use bevy::prelude::*;
 use bevy_egui::{egui, EguiContexts, EguiPlugin};
+use rand::seq::SliceRandom;
 struct ImageIcons {
     projectile_icon: Handle<Image>,
     shield_icon: Handle<Image>,
     pierce_icon: Handle<Image>,
+    freeze_icon: Handle<Image>,
+    fire_icon: Handle<Image>,
+    snowball_icon: Handle<Image>,
 }
 impl FromWorld for ImageIcons {
     fn from_world(world: &mut World) -> Self {
@@ -16,9 +21,13 @@ impl FromWorld for ImageIcons {
             projectile_icon: asset_server.load("candycane_shuriken.png"),
             shield_icon: asset_server.load("chestnut.png"),
             pierce_icon: asset_server.load("candycane.png"),
+            freeze_icon: asset_server.load("freeze.png"),
+            fire_icon: asset_server.load("fire_icon.png"),
+            snowball_icon: asset_server.load("snowball_icon.png"),
         }
     }
 }
+
 struct LogoImage {
     logo: Handle<Image>,
 }
@@ -41,16 +50,290 @@ impl<S: States> Plugin for MainMenuPlugin<S> {
             music: 1.0,
             sfx: 1.0,
         });
-        app.add_systems(Startup, load_fonts);
+        app.add_systems(Startup, (load_fonts, load_upgrades));
+
         app.add_systems(Update, setup_main_menu.run_if(in_state(self.state.clone())));
         app.add_systems(Update, setup_game_over.run_if(in_state(AppState::GameOver)));
-        app.add_systems(Update, setup_pause_menu.run_if(in_state(GameState::Paused)));
+        app.add_systems(
+            Update,
+            setup_pause_menu
+                .run_if(in_state(GameState::Paused))
+                .run_if(in_state(AppState::InGame)),
+        );
         app.add_systems(Update, listen_pause.run_if(in_state(AppState::InGame)));
-        app.add_systems(Update, upgrade_screen.run_if(in_state(GameState::Upgrade)));
+        app.add_systems(OnEnter(GameState::Upgrade), generate_available_upgrades);
+        app.add_systems(
+            Update,
+            upgrade_screen
+                .run_if(in_state(GameState::Upgrade))
+                .after(generate_available_upgrades),
+        );
         app.add_systems(Update, setup_settings.run_if(in_state(AppState::Settings)));
         app.add_systems(Update, credits_screen.run_if(in_state(AppState::Credits)));
     }
 }
+fn load_upgrades(
+    mut commands: Commands,
+    mut context: EguiContexts,
+    icons: Local<ImageIcons>,
+    player_stats: Res<PlayerStats>,
+) {
+    let rendered_projectile_icon = context.add_image(icons.projectile_icon.clone());
+    let rendered_shield_icon = context.add_image(icons.shield_icon.clone());
+    let rendered_pierce_icon = context.add_image(icons.pierce_icon.clone());
+    let rendered_freeze_icon = context.add_image(icons.freeze_icon.clone());
+    let rendered_fire_icon = context.add_image(icons.fire_icon.clone());
+    let rendered_snowball_icon = context.add_image(icons.snowball_icon.clone());
+    commands.insert_resource(SelectedUpgradeIndices::default());
+    commands.insert_resource(UpgradeCards {
+        upgrades: [
+            UpgradeCard {
+                name: "Chesnut Shield".to_string(),
+                icon: rendered_shield_icon,
+                description: "Adds an orbiting chestnut shield that protects you from enemies"
+                    .to_string(),
+                available: true,
+                taken: None,
+                prereq_met: true,
+                upgrade_id: 0,
+            },
+            UpgradeCard {
+                name: "Projectile Rate of Fire".to_string(),
+                icon: rendered_projectile_icon,
+                description: "Increases your attack speed".to_string(),
+                available: true,
+                taken: None,
+                prereq_met: true,
+                upgrade_id: 1,
+            },
+            UpgradeCard {
+                name: "Projectile Speed".to_string(),
+                icon: rendered_projectile_icon,
+                description: "Increases your projectile speed".to_string(),
+                available: true,
+                taken: None,
+                prereq_met: true,
+                upgrade_id: 2,
+            },
+            UpgradeCard {
+                name: "Damage".to_string(),
+                icon: rendered_projectile_icon,
+                description: "Increases your projectile damage".to_string(),
+                available: true,
+                taken: None,
+                prereq_met: true,
+                upgrade_id: 3,
+            },
+            UpgradeCard {
+                name: "Acceleration".to_string(),
+                icon: rendered_projectile_icon,
+                description: "Increases your movement speed".to_string(),
+                available: true,
+                taken: None,
+                prereq_met: true,
+                upgrade_id: 4,
+            },
+            UpgradeCard {
+                name: "Shield Damage".to_string(),
+                icon: rendered_shield_icon,
+                description: "Increases damage dealt by your orbiting shields".to_string(),
+                available: true,
+                taken: None,
+                prereq_met: if player_stats.num_shields > 0 {
+                    true
+                } else {
+                    false
+                },
+                upgrade_id: 5,
+            },
+            UpgradeCard {
+                name: "Shield Rotation Speed".to_string(),
+                icon: rendered_shield_icon,
+                description: "Makes your shields rotate faster".to_string(),
+                available: true,
+                taken: None,
+                prereq_met: if player_stats.num_shields > 0 {
+                    true
+                } else {
+                    false
+                },
+                upgrade_id: 6,
+            },
+            //UpgradeCard {
+            //    name: "Projectile Bounces".to_string(),
+            //    icon: rendered_projectile_icon,
+            //    description: "Your projectiles bounce one more time".to_string(),
+            //    available: true,
+            //    taken: None,
+            //},
+            UpgradeCard {
+                name: "Freeze Chance".to_string(),
+                icon: rendered_freeze_icon,
+                description: "Increases chance to freeze enemies".to_string(),
+                available: true,
+                taken: None,
+                prereq_met: true,
+                upgrade_id: 7,
+            },
+            UpgradeCard {
+                name: "Freeze Duration".to_string(),
+                icon: rendered_freeze_icon,
+                description: "Increases how long enemies stay frozen".to_string(),
+                available: true,
+                taken: None,
+                prereq_met: if player_stats.freeze_chance > 0 {
+                    true
+                } else {
+                    false
+                },
+                upgrade_id: 8,
+            },
+            UpgradeCard {
+                name: "Fire Chance".to_string(),
+                icon: rendered_fire_icon,
+                description: "Increases chance to burn enemies".to_string(),
+                available: true,
+                taken: None,
+                prereq_met: true,
+                upgrade_id: 9,
+            },
+            UpgradeCard {
+                name: "Fire Duration".to_string(),
+                icon: rendered_fire_icon,
+                description: "Increases how long enemies stay burning".to_string(),
+                available: true,
+                taken: None,
+                prereq_met: if player_stats.fire_chance > 0 {
+                    true
+                } else {
+                    false
+                },
+                upgrade_id: 10,
+            },
+            UpgradeCard {
+                name: "Fire Damage".to_string(),
+                icon: rendered_fire_icon,
+                description: "Increases damage over time from burning".to_string(),
+                available: true,
+                taken: None,
+                prereq_met: if player_stats.fire_chance > 0 {
+                    true
+                } else {
+                    false
+                },
+                upgrade_id: 11,
+            },
+            UpgradeCard {
+                name: "Flash Freeze".to_string(),
+                icon: rendered_freeze_icon,
+                description: "Freezing burning enemies deals percent damage".to_string(),
+                available: true,
+                taken: Some(false),
+                prereq_met: if player_stats.freeze_chance > 0 && player_stats.fire_chance > 0 {
+                    true
+                } else {
+                    false
+                },
+                upgrade_id: 12,
+            },
+            UpgradeCard {
+                name: "Flash Freeze Damage".to_string(),
+                icon: rendered_freeze_icon,
+                description: "Increases percent damage from Flash Freeze".to_string(),
+                available: true,
+                taken: None,
+                prereq_met: if player_stats.flash_freeze {
+                    true
+                } else {
+                    false
+                },
+                upgrade_id: 13,
+            },
+            UpgradeCard {
+                name: "Freezer Burn".to_string(),
+                icon: rendered_freeze_icon,
+                description: "Burning frozen enemies makes them vulnerable".to_string(),
+                available: true,
+                taken: Some(false),
+                prereq_met: if player_stats.freeze_chance > 0 && player_stats.fire_chance > 0 {
+                    true
+                } else {
+                    false
+                },
+                upgrade_id: 14,
+            },
+            UpgradeCard {
+                name: "Freezer Burn Duration".to_string(),
+                icon: rendered_freeze_icon,
+                description: "Increases vulnerability duration from Freezer Burn".to_string(),
+                available: true,
+                taken: None,
+                prereq_met: if player_stats.freezer_burn {
+                    true
+                } else {
+                    false
+                },
+                upgrade_id: 15,
+            },
+            UpgradeCard {
+                name: "Freezer Burn Multiplier".to_string(),
+                icon: rendered_freeze_icon,
+                description: "Increases damage multiplier from Freezer Burn".to_string(),
+                available: true,
+                taken: None,
+                prereq_met: if player_stats.freezer_burn {
+                    true
+                } else {
+                    false
+                },
+                upgrade_id: 16,
+            },
+            UpgradeCard {
+                name: "Pierce".to_string(),
+                icon: rendered_pierce_icon,
+                description: "Your projectiles pierce through one more enemy".to_string(),
+                available: true,
+                taken: None,
+                prereq_met: true,
+                upgrade_id: 17,
+            },
+            UpgradeCard {
+                name: "Shields apply effects".to_string(),
+                icon: rendered_shield_icon,
+                description: "Your shields apply effects (fire and freeze) to enemies".to_string(),
+                available: true,
+                taken: Some(false),
+                prereq_met: if player_stats.num_shields > 0
+                    && (player_stats.freeze_chance > 0 || player_stats.fire_chance > 0)
+                {
+                    true
+                } else {
+                    false
+                },
+                upgrade_id: 18,
+            },
+            UpgradeCard {
+                name: "Sugar Rush Damage Multiplier".to_string(),
+                icon: rendered_snowball_icon,
+                description: "Increases damage of your snowball during sugar rushes (go full speed for max damage)!".to_string(),
+                available: true,
+                taken: None,
+                prereq_met: true,
+                upgrade_id: 19,
+            },
+            UpgradeCard {
+                name: "Knockback Strength".to_string(),
+                icon: rendered_snowball_icon,
+                description: "Increases knockback strength".to_string(),
+                available: true,
+                taken: None,
+                prereq_met: true,
+                upgrade_id: 20,
+            },
+        ],
+    });
+}
+
 fn load_fonts(mut context: EguiContexts) {
     let mut fonts = egui::FontDefinitions::default();
     fonts.font_data.insert(
@@ -361,37 +644,84 @@ struct UpgradeCard {
     name: String,
     icon: egui::TextureId, // Path to icon asset
     description: String,
+    available: bool,
+    taken: Option<bool>,
+    prereq_met: bool,
+    upgrade_id: u32,
+}
+// Start of Selection
+#[derive(Resource)]
+struct UpgradeCards {
+    upgrades: [UpgradeCard; 21],
+}
+
+#[derive(Resource, Default)]
+struct SelectedUpgradeIndices {
+    indices: Vec<usize>,
+}
+
+fn generate_available_upgrades(
+    mut selected_indices_res: ResMut<SelectedUpgradeIndices>,
+    mut upgrades: ResMut<UpgradeCards>,
+    player_stats: Res<PlayerStats>,
+) {
+    // 1) Re-check each upgrade’s “prereq_met” based on current player_stats
+    for upgrade in &mut upgrades.upgrades {
+        let meets_requirements = match upgrade.upgrade_id {
+            6 => player_stats.num_shields > 0,
+            8 => player_stats.freeze_chance > 0,
+            10 | 11 => player_stats.fire_chance > 0,
+            12 => player_stats.freeze_chance > 0 && player_stats.fire_chance > 0,
+            13 => player_stats.flash_freeze,
+            14 => player_stats.freeze_chance > 0 && player_stats.fire_chance > 0,
+            15 | 16 => player_stats.freezer_burn,
+            18 => {
+                player_stats.num_shields > 0
+                    && (player_stats.fire_chance > 0 || player_stats.freeze_chance > 0)
+            }
+            // etc. for any others that have special requirements
+            _ => true,
+        };
+        upgrade.prereq_met = meets_requirements;
+    }
+
+    // 2) Clear out any old selection first
+    selected_indices_res.indices.clear();
+
+    // 3) Collect the indices of available (and now up-to-date) upgrades
+    let mut rng = rand::thread_rng();
+    let available_upgrade_indices: Vec<usize> = upgrades
+        .upgrades
+        .iter()
+        .enumerate()
+        .filter(|(_, u)| u.available && u.prereq_met)
+        .map(|(i, _)| i)
+        .collect();
+
+    // 4) If at least 3 are available, choose 3 at random. Otherwise, pick all.
+    let new_selection = if available_upgrade_indices.len() >= 3 {
+        available_upgrade_indices
+            .choose_multiple(&mut rng, 3)
+            .cloned()
+            .collect::<Vec<usize>>()
+    } else {
+        available_upgrade_indices
+    };
+
+    // 5) Store them in the resource for later
+    selected_indices_res.indices = new_selection;
 }
 
 fn upgrade_screen(
     mut egui_ctx: EguiContexts,
     mut app_state: ResMut<NextState<GameState>>,
-    icons: Local<ImageIcons>,
+    mut player_stats: ResMut<PlayerStats>,
+    mut upgrades: ResMut<UpgradeCards>,
+    selected_indices_res: Res<SelectedUpgradeIndices>,
 ) {
-    let rendered_projectile_icon = egui_ctx.add_image(icons.projectile_icon.clone());
-    let rendered_shield_icon = egui_ctx.add_image(icons.shield_icon.clone());
-    let rendered_pierce_icon = egui_ctx.add_image(icons.pierce_icon.clone());
-
     let ctx = egui_ctx.ctx_mut();
-
-    // Define available upgrades
-    let upgrades = vec![
-        UpgradeCard {
-            name: "Shield".to_string(),
-            icon: rendered_shield_icon,
-            description: "Adds an orbiting shield that protects you from enemies".to_string(),
-        },
-        UpgradeCard {
-            name: "Speed Up".to_string(),
-            icon: rendered_projectile_icon,
-            description: "Increases your movement and attack speed".to_string(),
-        },
-        UpgradeCard {
-            name: "Pierce".to_string(),
-            icon: rendered_pierce_icon,
-            description: "Your projectiles pierce through multiple enemies".to_string(),
-        },
-    ];
+    // Get the indices chosen by generate_available_upgrades
+    let selected_indices = &selected_indices_res.indices;
 
     egui::CentralPanel::default()
         .frame(egui::Frame::none().fill(egui::Color32::from_rgba_premultiplied(0, 0, 0, 250)))
@@ -400,17 +730,19 @@ fn upgrade_screen(
                 ui.add_space(20.0);
                 ui.label(egui::RichText::new("Choose an Upgrade").size(48.0).strong());
                 ui.add_space(15.0);
+
                 ui.horizontal_centered(|ui| {
-                    ui.add_space(
-                        ui.available_width() / 2.0 - (220.0 * upgrades.len() as f32) / 2.0,
-                    );
-                    for upgrade in upgrades.iter() {
+                    // (Optional) Position the 3 upgrade cards in the center
+                    ui.add_space(ui.available_width() / 2.0 - (300.0 * 3 as f32) / 2.0);
+
+                    for &index in selected_indices {
+                        let upgrade = &mut upgrades.upgrades[index];
                         ui.group(|ui| {
-                            ui.set_max_size(egui::vec2(220.0, 320.0));
+                            ui.set_min_size(egui::vec2(300.0, 400.0));
+                            ui.set_max_size(egui::vec2(300.0, 400.0));
                             ui.vertical_centered(|ui| {
                                 ui.add_space(10.0);
                                 ui.label(egui::RichText::new(&upgrade.name).size(28.0).strong());
-                                // Start of Selection
                                 ui.add_space(10.0);
                                 ui.add(egui::Image::new(egui::load::SizedTexture::new(
                                     upgrade.icon,
@@ -419,6 +751,7 @@ fn upgrade_screen(
                                 ui.add_space(10.0);
                                 ui.label(egui::RichText::new(&upgrade.description).size(16.0));
                                 ui.add_space(15.0);
+
                                 if ui
                                     .button(
                                         egui::RichText::new("Select")
@@ -427,6 +760,40 @@ fn upgrade_screen(
                                     )
                                     .clicked()
                                 {
+                                    // Apply the upgrade effects based on upgrade_id
+                                    match upgrade.upgrade_id {
+                                        0 => player_stats.num_shields += 1,
+                                        1 => player_stats.rate_of_fire *= 0.8,
+                                        2 => player_stats.projectile_speed *= 1.25,
+                                        3 => player_stats.damage *= 1.25,
+                                        4 => player_stats.acceleration_rate *= 1.25,
+                                        5 => player_stats.shield_damage *= 1.25,
+                                        6 => player_stats.shield_rotation_speed += 0.02,
+                                        7 => player_stats.freeze_chance += 15,
+                                        8 => player_stats.freeze_duration += 0.5,
+                                        9 => player_stats.fire_chance += 15,
+                                        10 => player_stats.fire_duration += 1.0,
+                                        11 => player_stats.fire_dps *= 1.25,
+                                        12 => player_stats.flash_freeze = true,
+                                        13 => player_stats.flash_freeze_percent_damage += 0.1,
+                                        14 => player_stats.freezer_burn = true,
+                                        15 => player_stats.freezer_burn_duration += 0.5,
+                                        16 => player_stats.freezer_burn_multiplier *= 1.25,
+                                        17 => player_stats.projectile_piercing += 1,
+                                        18 => player_stats.shield_apply_effects = true,
+                                        19 => player_stats.snowball_damage_multiplier += 0.25,
+                                        20 => player_stats.knockback_strength += 1.0,
+
+                                        _ => {}
+                                    }
+
+                                    // Mark the upgrade as taken and unavailable
+                                    if let Some(taken) = upgrade.taken.as_mut() {
+                                        *taken = true;
+                                        upgrade.available = false;
+                                    }
+
+                                    // Exit upgrade screen
                                     app_state.set(GameState::Playing);
                                 }
                             });

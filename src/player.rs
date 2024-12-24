@@ -11,9 +11,15 @@ use bevy_hanabi::prelude::*;
 
 #[derive(Resource)]
 pub struct PlayerStats {
+    pub xp_requirement: f32,
     pub damage: f32,
     pub rate_of_fire: f32,
     pub acceleration_rate: f32,
+
+    pub num_shields: u32,
+    pub shield_damage: f32,
+    pub shield_rotation_speed: f32,
+    pub shield_apply_effects: bool,
 
     pub projectile_speed: f32,
     pub projectile_piercing: i32,
@@ -32,6 +38,9 @@ pub struct PlayerStats {
     pub freezer_burn: bool, // Burning frozen enemies vunerables them
     pub freezer_burn_duration: f32,
     pub freezer_burn_multiplier: f32,
+
+    pub snowball_damage_multiplier: f32,
+    pub knockback_strength: f32,
 }
 
 pub struct PlayerPlugin<S: States> {
@@ -41,6 +50,7 @@ pub struct PlayerPlugin<S: States> {
 impl<S: States> Plugin for PlayerPlugin<S> {
     fn build(&self, app: &mut App) {
         app.insert_resource(PlayerStats {
+            xp_requirement: 10.0,
             rate_of_fire: 0.4,
             acceleration_rate: 500.0,
 
@@ -49,11 +59,16 @@ impl<S: States> Plugin for PlayerPlugin<S> {
             projectile_piercing: 0,
             projectile_bounces: 1,
 
-            freeze_chance: 10,
-            freeze_duration: 10.,
+            num_shields: 0,
+            shield_damage: 10.0,
+            shield_rotation_speed: 0.0,
+            shield_apply_effects: false,
 
-            fire_chance: 10,
-            fire_duration: 10.,
+            freeze_chance: 0,
+            freeze_duration: 5.,
+
+            fire_chance: 0,
+            fire_duration: 5.,
             fire_dps: 10.,
 
             flash_freeze: false,
@@ -62,14 +77,12 @@ impl<S: States> Plugin for PlayerPlugin<S> {
             freezer_burn: false,
             freezer_burn_duration: 2.,
             freezer_burn_multiplier: 2.,
+
+            snowball_damage_multiplier: 1.0,
+            knockback_strength: 3.,
         });
+        app.insert_resource(LastShieldCount::default());
         app.add_systems(OnEnter(self.state.clone()), spawn_player);
-        app.add_systems(
-            OnEnter(self.state.clone()),
-            spawn_shield
-                .after(spawn_player)
-                .run_if(in_state(GameState::Playing)),
-        );
         app.add_systems(
             FixedUpdate,
             (
@@ -83,6 +96,7 @@ impl<S: States> Plugin for PlayerPlugin<S> {
                 camera_follow,
                 upgrade_player,
                 delay_fire,
+                update_shields,
             )
                 .run_if(in_state(self.state.clone()))
                 .run_if(in_state(GameState::Playing)),
@@ -119,7 +133,7 @@ pub struct Shield {
 }
 #[derive(Component)]
 pub struct PlayerXp {
-    pub xp: u32,
+    pub xp: f32,
 }
 #[derive(Component)]
 pub struct PlayerHealth {
@@ -141,6 +155,7 @@ fn spawn_player(
     asset_server: Res<AssetServer>,
     mut texture_atlas_layouts: ResMut<Assets<TextureAtlasLayout>>,
     mut effects: ResMut<Assets<EffectAsset>>,
+    player_stats: Res<PlayerStats>,
 ) {
     let texture = asset_server.load("elf.png");
     let layout = TextureAtlasLayout::from_grid(UVec2::splat(48), 3, 1, None, None);
@@ -164,9 +179,11 @@ fn spawn_player(
             AnimationTimer(Timer::from_seconds(0.1, TimerMode::Repeating)),
             Transform::from_xyz(0.0, 0.0, 0.0),
             YSort { z: 32.0 },
-            ShieldCircle { number: 7 },
-            PlayerXp { xp: 0 },
+            PlayerXp { xp: 0.0 },
             PlayerHealth { hp: 10.0 },
+            ShieldCircle {
+                number: player_stats.num_shields,
+            },
         ))
         .id();
 
@@ -407,31 +424,7 @@ fn powerup_player(
     }
 }
 const SHIELD_OFFSET: f32 = 50.0;
-fn spawn_shield(
-    mut commands: Commands,
-    q_player: Query<(Entity, &Transform, &ShieldCircle), With<Player>>,
-    asset_server: Res<AssetServer>,
-) {
-    let Ok((player_entity, player_transform, shield_circle)) = q_player.get_single() else {
-        return;
-    };
-    for i in 0..shield_circle.number {
-        let child = commands
-            .spawn((
-                Shield { damage: 10. },
-                Transform::from_translation({
-                    let angle =
-                        (i as f32) * 2.0 * std::f32::consts::PI / (shield_circle.number as f32);
-                    let x = SHIELD_OFFSET * angle.cos();
-                    let y = SHIELD_OFFSET * angle.sin();
-                    player_transform.translation + Vec3::new(x, y, 0.0)
-                }),
-                Sprite::from_image(asset_server.load("chestnut.png")),
-            ))
-            .id();
-        commands.entity(player_entity).add_child(child);
-    }
-}
+
 fn shield_movement(mut shield_query: Query<&mut Transform, (With<Shield>, Without<Player>)>) {
     for mut transform in shield_query.iter_mut() {
         let rotation = Quat::from_rotation_z(0.05);
@@ -458,12 +451,15 @@ fn kill_player(mut commands: Commands, q_player: Query<(Entity, &PlayerHealth), 
     }
 }
 fn upgrade_player(
-    q_player: Query<&PlayerXp, With<Player>>,
+    mut q_player: Query<&mut PlayerXp, With<Player>>,
     mut game_state: ResMut<NextState<GameState>>,
+    mut player_stats: ResMut<PlayerStats>,
 ) {
-    let player_xp = q_player.single();
-    if player_xp.xp >= 1000 {
+    let mut player_xp = q_player.single_mut();
+    if player_xp.xp >= player_stats.xp_requirement {
         game_state.set(GameState::Upgrade);
+        player_xp.xp = 0.0;
+        player_stats.xp_requirement += 5.0;
     }
 }
 
@@ -503,4 +499,60 @@ fn animate_sprite(
             }
         }
     }
+}
+
+/// Track how many shields we last had, to know if we need to spawn more.
+#[derive(Resource, Default)]
+struct LastShieldCount {
+    count: u32,
+}
+
+fn update_shields(
+    mut commands: Commands,
+    mut q_player: Query<(Entity, &Transform, &mut ShieldCircle), With<Player>>,
+    asset_server: Res<AssetServer>,
+    player_stats: Res<PlayerStats>,
+    mut last_shield_count: ResMut<LastShieldCount>,
+    q_shield: Query<Entity, With<Shield>>,
+) {
+    let Ok((player_entity, player_transform, mut shield_circle)) = q_player.get_single_mut() else {
+        return;
+    };
+
+    // If the shield count hasn't changed, do nothing.
+    if player_stats.num_shields == last_shield_count.count {
+        return;
+    }
+    // Otherwise, update ShieldCircle.number to match new count
+    shield_circle.number = player_stats.num_shields;
+
+    for entity in q_shield.iter() {
+        commands.entity(entity).despawn_recursive();
+    }
+
+    // 2) Spawn new shields
+    for i in 0..shield_circle.number {
+        println!("Spawning {} shields out of {}", shield_circle.number, i);
+
+        let child = commands
+            .spawn((
+                Shield {
+                    damage: player_stats.shield_damage,
+                },
+                Transform::from_translation({
+                    let angle =
+                        (i as f32) * 2.0 * std::f32::consts::PI / (shield_circle.number as f32);
+                    let x = SHIELD_OFFSET * angle.cos();
+                    let y = SHIELD_OFFSET * angle.sin();
+                    Vec3::new(x, y, 0.0)
+                }),
+                Sprite::from_image(asset_server.load("chestnut.png")),
+                YSort { z: 10.0 },
+            ))
+            .id();
+        commands.entity(player_entity).add_child(child);
+    }
+
+    // 3) Update our last known shield count
+    last_shield_count.count = player_stats.num_shields;
 }
