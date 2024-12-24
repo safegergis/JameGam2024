@@ -108,20 +108,25 @@ fn xp_collision(
 }
 fn projectiles_collision(
     mut commands: Commands,
-    mut projectiles_q: Query<(Entity, &Transform, &mut Projectile), (Without<Enemy>)>,
+    mut projectiles_q: Query<(Entity, &Transform, &mut Projectile, Option<&Vunerable>), (Without<Enemy>)>,
     mut enemies_q: Query<
         (&mut EnemyHealth, &Transform, Entity, &Children),
         (With<Enemy>, Without<InvincibleTimer>),
     >,
     stats: Res<PlayerStats>,
 ) {
-    for (projectile_entity, projectile_tf, mut projectile) in projectiles_q.iter_mut() {
+    for (projectile_entity, projectile_tf, mut projectile, vunerable) in projectiles_q.iter_mut() {
         for (mut health, enemy_tf, enemy_entity, enemy_children) in enemies_q.iter_mut() {
             let pos1 = projectile_tf.translation.truncate();
             let pos2 = enemy_tf.translation.truncate();
             let dist = pos1.distance(pos2);
             if dist < 16.0 {
-                health.health -= 34.;
+                let mut multiplier: f32 = 1.0;
+                if let Some(_vunerable) = vunerable
+                {
+                    multiplier = _vunerable.multiplier;
+                }
+                health.health -= stats.damage * multiplier;
                 //println!("enemy destroyed");
                 // Apply knockback to enemy
                 let knockback_direction = (pos2 - pos1).normalize();
@@ -476,14 +481,12 @@ fn fire_check(
                 if(stats.freezer_burn)
                 {
                     commands.entity(enemy_entity).insert(Vunerable {
-                        duration: 2.,
-                        multiplier: 2.,
+                        duration: stats.freezer_burn_duration,
+                        multiplier: stats.freezer_burn_multiplier,
                     });
                 }
             }
             //////////////////////////////////////////////
-
-
 
             commands.entity(enemy_entity).insert(OnFire {
                 duration: stats.fire_duration,

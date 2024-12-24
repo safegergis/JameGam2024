@@ -10,11 +10,13 @@ use bevy_hanabi::prelude::*;
 
 #[derive(Resource)]
 pub struct PlayerStats {
+    pub damage: f32,
     pub rate_of_fire: f32,
     pub acceleration_rate: f32,
 
     pub projectile_speed: f32,
     pub projectile_piercing: i32,
+    pub projectile_bounces: i32,
 
     pub freeze_chance: i32,
     pub freeze_duration: f32,
@@ -24,7 +26,11 @@ pub struct PlayerStats {
     pub fire_dps: f32,
 
     pub flash_freeze: bool, // Freezing burning enemies deals percent damage
+    pub flash_freeze_percent_damage: f32,
+
     pub freezer_burn: bool, // Burning frozen enemies vunerables them
+    pub freezer_burn_duration: f32,
+    pub freezer_burn_multiplier: f32,
 }
 pub struct PlayerPlugin<S: States> {
     pub state: S,
@@ -36,18 +42,24 @@ impl<S: States> Plugin for PlayerPlugin<S> {
             rate_of_fire: 0.4,
             acceleration_rate: 500.0,
 
+            damage: 34.,
             projectile_speed: 550.0,
-            projectile_piercing: 10,
+            projectile_piercing: 0,
+            projectile_bounces: 1,
 
-            freeze_chance: 100,
+            freeze_chance: 10,
             freeze_duration: 10.,
 
-            fire_chance: 100,
+            fire_chance: 10,
             fire_duration: 10.,
             fire_dps: 10.,
 
             flash_freeze: false,
+            flash_freeze_percent_damage: 0.15,
+
             freezer_burn: false,
+            freezer_burn_duration: 2.,
+            freezer_burn_multiplier: 2.,
         });
         app.add_systems(Startup, spawn_player);
         app.add_systems(
@@ -86,6 +98,7 @@ pub struct Player {
 pub struct Projectile {
     velocity: f32,
     direction: Vec2,
+    pub damage: f32,
     pub pierce_amount: i32,
 }
 #[derive(Component)]
@@ -349,6 +362,7 @@ fn fire_projectile(
                     velocity: stats.projectile_speed,
                     direction: projectile_direction,
                     pierce_amount: stats.projectile_piercing,
+                    damage: stats.damage,
                 },
                 Transform::from_translation(player_position.extend(0.0)),
                 Sprite::from_image(asset_server.load("candycane_shuriken.png")),

@@ -19,7 +19,7 @@ impl<S: States> Plugin for EnemyPlugin<S> {
         app.insert_resource(EnemyTimer(Timer::from_seconds(0.05, TimerMode::Repeating)));
         app.add_systems(
             Update,
-            (chase_player, spawn_enemy, wiggle, y_sort, kill_dead_enemies, unfreeze, extinguish)
+            (chase_player, spawn_enemy, wiggle, y_sort, kill_dead_enemies, unfreeze, extinguish, vunerable_tickdown)
                 .run_if(in_state(self.state.clone())),
         );
         app.add_systems(OnExit(self.state.clone()), clean_up_enemies);
@@ -210,6 +210,21 @@ fn extinguish(
                 time_left: 0.0,
                 color: Color::srgba(1., 1., 1., 1.),
             });
+        }
+    }
+}
+
+fn vunerable_tickdown(
+    mut commands: Commands,
+    mut q: Query<(&mut Vunerable, Entity)>,
+    time: Res<Time>,
+) {
+    for (mut vunerable, vunerable_entity) in q.iter_mut() {
+        let dt = time.delta_secs();
+        vunerable.duration -= dt;
+        if(vunerable.duration <= 0.0)
+        {
+            commands.entity(vunerable_entity).remove::<Vunerable>();
         }
     }
 }
