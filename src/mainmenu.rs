@@ -48,6 +48,7 @@ impl<S: States> Plugin for MainMenuPlugin<S> {
         app.add_systems(Update, listen_pause.run_if(in_state(AppState::InGame)));
         app.add_systems(Update, upgrade_screen.run_if(in_state(GameState::Upgrade)));
         app.add_systems(Update, setup_settings.run_if(in_state(AppState::Settings)));
+        app.add_systems(Update, credits_screen.run_if(in_state(AppState::Credits)));
     }
 }
 fn load_fonts(mut context: EguiContexts) {
@@ -113,6 +114,20 @@ fn setup_main_menu(
                     .clicked()
                 {
                     app_state.set(AppState::Settings);
+                }
+
+                ui.add_space(30.0);
+                let credits_button = egui::Button::new(
+                    egui::RichText::new("Credits")
+                        .size(32.0)
+                        .color(egui::Color32::from_rgb(240, 240, 255)),
+                );
+                if ui
+                    .add_sized([220.0, 60.0], credits_button)
+                    .on_hover_text("View credits")
+                    .clicked()
+                {
+                    app_state.set(AppState::Credits);
                 }
 
                 ui.add_space(30.0);
@@ -418,6 +433,52 @@ fn upgrade_screen(
                         });
                     }
                 });
+            });
+        });
+}
+
+fn credits_screen(mut egui_ctx: EguiContexts, mut app_state: ResMut<NextState<AppState>>) {
+    egui::CentralPanel::default()
+        .frame(egui::Frame::none().fill(egui::Color32::from_rgba_premultiplied(0, 0, 0, 250)))
+        .show(egui_ctx.ctx_mut(), |ui| {
+            ui.vertical_centered_justified(|ui| {
+                ui.add_space(20.0);
+                ui.label(egui::RichText::new("Credits").size(48.0).strong());
+                ui.add_space(15.0);
+                ui.separator();
+                ui.add_space(15.0);
+
+                // Developers Section
+                ui.label(egui::RichText::new("Developers").size(32.0).strong());
+                ui.add_space(10.0);
+                ui.label(egui::RichText::new("Safe Gergis - Developer").size(24.0));
+                ui.label(egui::RichText::new("Alexander Blocker - Developer").size(24.0));
+                ui.add_space(20.0);
+
+                // Artists Section
+                ui.label(egui::RichText::new("Artists").size(32.0).strong());
+                ui.add_space(10.0);
+                ui.label(egui::RichText::new("Brandon Martin Del Campo - 2D Artist").size(24.0));
+                ui.label(egui::RichText::new("Ryan Agundez - Music").size(24.0));
+                ui.add_space(30.0);
+
+                // Back Button
+                if ui
+                    .add_sized(
+                        [220.0, 60.0],
+                        egui::Button::new(
+                            egui::RichText::new("Back")
+                                .size(20.0)
+                                .color(egui::Color32::WHITE),
+                        )
+                        .fill(egui::Color32::from_rgb(80, 80, 160))
+                        .stroke(egui::Stroke::new(2.0, egui::Color32::WHITE)),
+                    )
+                    .on_hover_text("Return to main menu")
+                    .clicked()
+                {
+                    app_state.set(AppState::MainMenu);
+                }
             });
         });
 }

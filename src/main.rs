@@ -33,6 +33,7 @@ pub enum AppState {
     InGame,
     GameOver,
     Settings,
+    Credits,
 }
 
 #[derive(Resource)]
