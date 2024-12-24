@@ -434,7 +434,7 @@ fn shield_movement(mut shield_query: Query<&mut Transform, (With<Shield>, Withou
 fn scale_snowball_to_health(
     mut q_player: Query<(&PlayerHealth, &mut Player)>,
     mut q_player_snowball: Query<&mut Transform, With<PlayerSnowball>>,
-    mut resolution: ResMut<Resolution>
+    mut resolution: ResMut<Resolution>,
 ) {
     let (player_health, mut player) = q_player.single_mut();
     let mut player_snowball_tf = q_player_snowball.single_mut();
@@ -464,7 +464,7 @@ fn upgrade_player(
     if player_xp.xp >= player_stats.xp_requirement {
         game_state.set(GameState::Upgrade);
         player_xp.xp = 0.0;
-        player_stats.xp_requirement += 5.0;
+        player_stats.xp_requirement += 4.0;
     }
 }
 

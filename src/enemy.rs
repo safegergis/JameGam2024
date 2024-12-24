@@ -211,7 +211,7 @@ fn spawn_enemy(
                         speed: 25.0,
                         radius: 1000.0,
                     },
-                    EnemyHealth { health: 100. },
+                    EnemyHealth { health: 200. },
                 ))
                 .id();
 
