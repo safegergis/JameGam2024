@@ -9,7 +9,7 @@ pub struct PickupPlugin<S: States> {
 
 impl<S: States> Plugin for PickupPlugin<S> {
     fn build(&self, app: &mut App) {
-        app.insert_resource(PickupTimer(Timer::from_seconds(1.0, TimerMode::Repeating)));
+        app.insert_resource(PickupTimer(Timer::from_seconds(45.0, TimerMode::Repeating)));
         app.add_systems(
             Update,
             (spawn_pickup, pickup_hover)

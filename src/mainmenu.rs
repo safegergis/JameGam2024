@@ -497,7 +497,7 @@ fn setup_main_menu(
 
                 ui.add_space(30.0);
 
-                // Stylized quit button
+                /* quit button
                 let quit_button = egui::Button::new(
                     egui::RichText::new("Quit")
                         .size(32.0)
@@ -510,6 +510,7 @@ fn setup_main_menu(
                 {
                     std::process::exit(0);
                 }
+                */
             });
         });
 }
@@ -629,7 +630,7 @@ fn setup_game_over(
 
                 ui.add_space(30.0);
 
-                // Quit button
+                /* quit button
                 let quit_button = egui::Button::new(
                     egui::RichText::new("Quit")
                         .size(32.0)
@@ -642,6 +643,7 @@ fn setup_game_over(
                 {
                     std::process::exit(0);
                 }
+                */
             });
         });
 }
@@ -697,7 +699,7 @@ fn setup_pause_menu(
 
                 ui.add_space(30.0);
 
-                // Quit button
+                /* quit button
                 let quit_button = egui::Button::new(
                     egui::RichText::new("Quit")
                         .size(32.0)
@@ -710,6 +712,7 @@ fn setup_pause_menu(
                 {
                     std::process::exit(0);
                 }
+                */
             });
         });
 }

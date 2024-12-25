@@ -1,17 +1,20 @@
 //! Shows how to create graphics that snap to the pixel grid by rendering to a texture in 2D
 
 use bevy::{
-    prelude::*, render::{
+    prelude::*,
+    render::{
         camera::RenderTarget,
         render_resource::{
             Extent3d, TextureDescriptor, TextureDimension, TextureFormat, TextureUsages,
         },
         view::RenderLayers,
-    }, window::WindowResized
+    },
+    window::WindowResized,
 };
 
+use bevy::asset::AssetMetaCheck;
 #[derive(Resource)]
-pub struct Resolution{
+pub struct Resolution {
     pub width: u32,
     pub height: u32,
     pub base_width: u32,
@@ -38,13 +41,20 @@ pub struct CameraPlugin;
 
 impl Plugin for CameraPlugin {
     fn build(&self, app: &mut App) {
-        app.insert_resource(Resolution{
+        app.insert_resource(Resolution {
             width: RES_WIDTH,
             height: RES_HEIGHT,
             base_width: RES_WIDTH,
             base_height: RES_HEIGHT,
         });
-        app.add_plugins(DefaultPlugins.set(ImagePlugin::default_nearest()));
+        app.add_plugins(
+            DefaultPlugins
+                .set(ImagePlugin::default_nearest())
+                .set(AssetPlugin {
+                    meta_check: AssetMetaCheck::Never,
+                    ..default()
+                }),
+        );
         app.add_systems(Startup, setup_camera);
         app.add_systems(Update, (rotate, (update_canvas_size, fit_canvas).chain()));
     }
@@ -93,7 +103,7 @@ fn update_canvas_size(
             height: new_height,
             ..canvas.texture_descriptor.size
         };
-        
+
         // Update the texture descriptor and resize the buffer
         canvas.texture_descriptor.size = new_size;
         canvas.resize(new_size);
@@ -169,7 +179,7 @@ fn rotate(time: Res<Time>, mut rotates: Query<(&mut Transform, &Rotate), With<Ro
 fn fit_canvas(
     mut resize_events: EventReader<WindowResized>,
     mut projection: Single<&mut OrthographicProjection, With<OuterCamera>>,
-    resolution: Res<Resolution>
+    resolution: Res<Resolution>,
 ) {
     for event in resize_events.read() {
         let h_scale = event.width / resolution.width as f32;

@@ -163,7 +163,7 @@ fn spawn_enemy(
 
             let snowman_sprite = commands
                 .spawn((
-                    Sprite::from_image(asset_server.load("Snowman.png")),
+                    Sprite::from_image(asset_server.load("snowman.png")),
                     Wiggle {
                         rotate_speed: 18.0,
                         rotate_amount: 0.0125,
@@ -177,7 +177,7 @@ fn spawn_enemy(
             let snowman_shadow = commands
                 .spawn((
                     Transform::from_xyz(0.0, -8.0, 0.0),
-                    Sprite::from_image(asset_server.load("Shadow.png")),
+                    Sprite::from_image(asset_server.load("shadow.png")),
                     YSort { z: -100.0 },
                     Wiggle {
                         rotate_speed: 0.0,
@@ -191,7 +191,7 @@ fn spawn_enemy(
             commands.entity(snowman_holder).add_child(snowman_shadow);
             commands.entity(snowman_holder).add_child(snowman_sprite);
         } else {
-            let texture = asset_server.load("BuffSnowman.png");
+            let texture = asset_server.load("buffsnowman.png");
             let layout = TextureAtlasLayout::from_grid(UVec2::splat(48), 4, 1, None, None);
             let texture_atlas_layout = texture_atlas_layouts.add(layout);
             // Use only the subset of sprites in the sheet that make up the run animation
@@ -239,7 +239,7 @@ fn spawn_enemy(
             let snowman_shadow = commands
                 .spawn((
                     Transform::from_xyz(0.0, -18.0, 0.0),
-                    Sprite::from_image(asset_server.load("Shadow.png")),
+                    Sprite::from_image(asset_server.load("shadow.png")),
                     YSort { z: -100.0 },
                     Wiggle {
                         rotate_speed: 0.0,

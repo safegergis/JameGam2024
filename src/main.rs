@@ -1,3 +1,5 @@
+#![windows_subsystem = "windows"]
+
 mod audio;
 mod background;
 mod camera;
@@ -12,7 +14,6 @@ mod utils;
 use audio::AudioPlugin;
 use background::BackgroundPlugin;
 use bevy::prelude::*;
-use bevy_hanabi::prelude::*;
 use camera::CameraPlugin;
 use collision::CollisionPlugin;
 use enemy::EnemyPlugin;
@@ -72,6 +73,6 @@ fn main() {
         .add_plugins(UiPlugin {
             state: AppState::InGame,
         })
-        .add_plugins(HanabiPlugin)
+        //.add_plugins(HanabiPlugin)
         .run();
 }

@@ -507,7 +507,7 @@ fn freeze_check(
 
             let freeze_sprite = commands
                 .spawn((
-                    Sprite::from_image(asset_server.load("Freeze.png")),
+                    Sprite::from_image(asset_server.load("freeze.png")),
                     YSort { z: 0.6 },
                     Frozen {
                         duration: stats.freeze_duration,

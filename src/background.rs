@@ -92,7 +92,7 @@ fn setup(
     let snap_x = (camera_transform.translation().x / w).round() as i32;
     let snap_y = (camera_transform.translation().y / h).round() as i32;
 
-    let texture = asset_server.load("Background4848.png");
+    let texture = asset_server.load("background4848.png");
     let layout = TextureAtlasLayout::from_grid(UVec2::splat(48), 14, 1, None, None);
     let texture_atlas_layout = texture_atlas_layouts.add(layout);
 
